@@ -1,0 +1,5 @@
+FSharp.Core
+JsonWebToken
+Lmc.Authorization.Common
+Lmc.ErrorHandling
+Lmc.SC.DomainModel
