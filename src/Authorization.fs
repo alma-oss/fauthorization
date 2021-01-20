@@ -65,38 +65,39 @@ module Authorize =
 
     [<RequireQualifiedAccess>]
     module private AuthorizationError =
-        let format logError = function
+        let format (formatError: string -> 'ErrorMessage) logError: AuthorizationError -> SecuredRequestError<'ErrorMessage> = function
             | JwtValidationError (JwtValidationError.Unexpected e) ->
                 logError <| sprintf "Unexpected authorization error.\n%s" e.Message
-                "Unexpected authorization error." |> SecuredRequestError.TokenError
+                "Unexpected authorization error." |> formatError |> SecuredRequestError.TokenError
 
             | JwtValidationError MissingKeyData ->
                 logError "Missing key for JWT validation."
-                "Unexpected authorization error." |> SecuredRequestError.TokenError
+                "Unexpected authorization error." |> formatError |> SecuredRequestError.TokenError
 
             | JwtValidationError detail ->
-                sprintf "Action is not granted! %A" detail |> SecuredRequestError.TokenError
+                sprintf "Action is not granted! %A" detail |> formatError |> SecuredRequestError.TokenError
 
             | ActionIsNotGranted detail ->
-                sprintf "Action is not granted! %s" detail |> SecuredRequestError.AuthorizationError
+                sprintf "Action is not granted! %s" detail |> formatError |> SecuredRequestError.AuthorizationError
 
             | RequestError error ->
-                error |> SecuredRequestError.AuthorizationError
+                error |> formatError |> SecuredRequestError.AuthorizationError
 
     /// Helper function to create an Operator for easier authorization
     let authorizeAction
         (softwareComponent: Lmc.SC.DomainModel.SoftwareComponent)
         (appKey: JWTKey)
         (keysForToken: JWTKey list)
+        (formatError: string -> 'ErrorMessage)
         (logAuthorizationError: string -> unit)
         (authorize: Authorize<'RequestData>)
-        (action: 'RequestData -> AsyncResult<'ResponseData, ErrorMessage>)
-        (request: SecureRequest<'RequestData>): AsyncResult<RenewedToken * 'ResponseData, SecuredRequestError<ErrorMessage>>
+        (action: 'RequestData -> AsyncResult<'ResponseData, 'ErrorMessage>)
+        (request: SecureRequest<'RequestData>): AsyncResult<RenewedToken * 'ResponseData, SecuredRequestError<'ErrorMessage>>
         = asyncResult {
             let! (renewedToken, requestData) =
                 request
                 |> authorize softwareComponent appKey keysForToken
-                |> AsyncResult.ofResult <@> (AuthorizationError.format logAuthorizationError)
+                |> AsyncResult.ofResult <@> (AuthorizationError.format formatError logAuthorizationError)
 
             let! response =
                 requestData
