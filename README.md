@@ -41,6 +41,8 @@ Then implement your Api.
 ```fs
 // Server
 
+type MyErrorMessageType = MyErrorMessageType of string
+
 module Api =
     open Shared
     open Lmc.ErrorHandling
@@ -52,6 +54,7 @@ module Api =
             currentApplication.SoftwareComponent
             currentApplication.TokenKey
             currentApplication.KeysForToken
+            MyErrorMessageType
             logAuthorizationError
             authorize
             action
