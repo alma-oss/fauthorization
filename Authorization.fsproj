@@ -15,6 +15,7 @@
 
     <ItemGroup>
         <Compile Include="src/Utils.fs" />
+        <Compile Include="src/Types.fs" />
         <Compile Include="src/Token.fs" />
         <Compile Include="src/Authorization.fs" />
     </ItemGroup>
