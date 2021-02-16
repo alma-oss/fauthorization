@@ -7,8 +7,8 @@ nuget JsonWebToken ~> 1.3
 git ssh://git@bitbucket.lmc.cz:7999/archi/nuget-server.git master Packages: /nuget/
 # LMC Nuget dependencies:
 nuget Lmc.Authorization.Common ~> 1.0
-nuget Lmc.ErrorHandling ~> 4.1
-nuget Lmc.SC.DomainModel ~> 4.1
+nuget Lmc.ErrorHandling ~> 5.0
+nuget Lmc.SC.DomainModel ~> 4.3
 
 // [ FAKE GROUP ]
 group Build
