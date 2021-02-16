@@ -1,5 +1,6 @@
 namespace Lmc.Authorization
 
+open Lmc.SC.DomainModel
 open Lmc.Authorization.Common
 
 //
@@ -68,8 +69,6 @@ type PermissionGroup = PermissionGroup of string
 
 [<RequireQualifiedAccess>]
 module PermissionGroup =
-    open Lmc.SC.DomainModel
-
     let create softwareComponent scope =
         sprintf "%s:%s" (softwareComponent |> SoftwareComponent.value) (scope |> Scope.value)
         |> Hash.sha1
@@ -85,7 +84,6 @@ type Permission =
 module JWTToken =
     open System
     open JsonWebToken
-    open Lmc.SC.DomainModel
     open Lmc.ErrorHandling
     open Lmc.ErrorHandling.Result.Operators
 
