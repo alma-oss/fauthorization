@@ -1,7 +1,7 @@
 RESTRICTION: == net50
 NUGET
   remote: https://api.nuget.org/v3/index.json
-    FSharp.Core (5.0)
+    FSharp.Core (5.0.1)
     gfoidl.Analyzers (0.2)
     gfoidl.Base64 (1.1.1)
       gfoidl.Analyzers (>= 0.2)
@@ -10,22 +10,22 @@ NUGET
   remote: paket-files/git_bitbucket.lmc.cz7999/archi/nuget-server/nuget
     Lmc.Authorization.Common (1.0.0)
       FSharp.Core (>= 5.0)
-    Lmc.EnvironmentModel (3.0.0)
+    Lmc.EnvironmentModel (3.2.0)
+      FSharp.Core (>= 5.0.1)
+      Lmc.ErrorHandling (>= 5.0)
+      Lmc.ServiceIdentification (>= 5.2)
+    Lmc.ErrorHandling (5.0.0)
       FSharp.Core (>= 5.0)
-      Lmc.ErrorHandling (>= 4.0)
-      Lmc.ServiceIdentification (>= 5.0)
-    Lmc.ErrorHandling (4.1.0)
-      FSharp.Core (>= 5.0)
-    Lmc.SC.DomainModel (4.1.0)
-      FSharp.Core (>= 5.0)
-      Lmc.EnvironmentModel (>= 3.0)
-      Lmc.ErrorHandling (>= 4.0)
-      Lmc.ServiceIdentification (>= 5.0)
-    Lmc.ServiceIdentification (5.0.1)
+    Lmc.SC.DomainModel (4.3.0)
+      FSharp.Core (>= 5.0.1)
+      Lmc.EnvironmentModel (>= 3.2)
+      Lmc.ErrorHandling (>= 5.0)
+      Lmc.ServiceIdentification (>= 5.2)
+    Lmc.ServiceIdentification (5.2.0)
       FSharp.Core (>= 5.0)
 GIT
   remote: ssh://git@bitbucket.lmc.cz:7999/archi/nuget-server.git
-     (1b2cbe1c020d5606dc39f826d306e51ed893a153)
+     (9f730b7131d0d6910513d78ded99dda4858547ca)
       path: /nuget/
 GROUP Build
 STORAGE: NONE
