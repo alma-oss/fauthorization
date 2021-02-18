@@ -51,9 +51,10 @@ module Api =
 
     let inline private (>?>) authorize action =
         Authorize.authorizeAction
-            currentApplication.SoftwareComponent
-            currentApplication.TokenKey
-            currentApplication.KeysForToken
+            (CurrentApplication currentApplication.Gui.SoftwareComponent)   // CurrentApplication must be a Issuer and Audience for the validated token
+            (AuthorizedFor currentApplication.SoftwareComponent)            // AuthorizedFor is a software component which user want to do something needing authorization
+            (KeyForRenewToken currentApplication.TokenKey)                  // This key will be used for renewed token, it must be one of the KeysForToken in order to access the renewed token again
+            currentApplication.KeysForToken                                 // A list of keys, which will be used to try access a token (at least one of the keys must pass in order to grant a permission)
             MyErrorMessageType
             logAuthorizationError
             authorize

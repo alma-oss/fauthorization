@@ -65,13 +65,16 @@ module JwtKeyModule =
             | JWTKey key -> key.ToString()
             | ServiceAccount (Password password) -> password
 
+type CurrentApplication = CurrentApplication of SoftwareComponent
+type AuthorizedFor = AuthorizedFor of SoftwareComponent
+
 type KeyForRenewToken = KeyForRenewToken of JWTKey
 
 type PermissionGroup = PermissionGroup of string
 
 [<RequireQualifiedAccess>]
 module PermissionGroup =
-    let create softwareComponent scope =
+    let create (AuthorizedFor softwareComponent) scope =
         sprintf "%s:%s" (softwareComponent |> SoftwareComponent.value) (scope |> Scope.value)
         |> Hash.sha1
         |> PermissionGroup
@@ -102,7 +105,7 @@ module JWTToken =
 
     let value (JWTToken value) = value
 
-    let private readUserData currentApp key (JWTToken token) =
+    let private readUserData (CurrentApplication currentApp) key (JWTToken token) =
         try
             use key = new SymmetricJwk(key |> JWTKey.value)
             let currentSoftwareComponent = currentApp |> SoftwareComponent.value
@@ -216,7 +219,7 @@ module JWTToken =
             descriptor.AddClaim(key, array)
             descriptor |> addCustomData rest
 
-    let create currentApp appKey customData =
+    let create (CurrentApplication currentApp) appKey customData =
         use key = new SymmetricJwk(appKey |> JWTKey.value, SignatureAlgorithm.HmacSha256)
         let currentSoftwareComponent = currentApp |> SoftwareComponent.value
         let now = DateTime.UtcNow

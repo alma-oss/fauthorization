@@ -22,43 +22,43 @@ module Authorize =
             return renewedToken, data
         }
 
-    let private isGranted softwareComponent keyForRenewToken keysForToken permission (SecurityToken token) =
+    let private isGranted currentApplication keyForRenewToken keysForToken permission (SecurityToken token) =
         permission
-        |> JWTToken.isGranted softwareComponent keysForToken token
+        |> JWTToken.isGranted currentApplication keysForToken token
         <!> (JWTToken.renew keyForRenewToken >> RenewedToken)
 
-    type Authorize<'RequestData> = Lmc.SC.DomainModel.SoftwareComponent -> KeyForRenewToken -> JWTKey list -> SecureRequest<'RequestData> -> Result<RenewedToken * 'RequestData, AuthorizationError>
+    type Authorize<'RequestData> = CurrentApplication -> AuthorizedFor -> KeyForRenewToken -> JWTKey list -> SecureRequest<'RequestData> -> Result<RenewedToken * 'RequestData, AuthorizationError>
 
     let withLogin: Authorize<'RequestData> =
-        fun softwareComponent keyForRenewToken keysForToken ->
-            SecureRequest.accessData (isGranted softwareComponent keyForRenewToken keysForToken ValidToken)
+        fun currentApplication _ keyForRenewToken keysForToken ->
+            SecureRequest.accessData (isGranted currentApplication keyForRenewToken keysForToken ValidToken)
 
-    let private grantScope softwareComponent keyForRenewToken keysForToken token scope =
+    let private grantScope currentApplication authorizedFor keyForRenewToken keysForToken token scope =
         let permission =
             scope
-            |> PermissionGroup.create softwareComponent
+            |> PermissionGroup.create authorizedFor
             |> Group
 
         token
-        |> isGranted softwareComponent keyForRenewToken keysForToken permission
+        |> isGranted currentApplication keyForRenewToken keysForToken permission
 
     let withScope scope: Authorize<'RequestData> =
-        fun softwareComponent keyForRenewToken keysForToken ->
+        fun currentApplication softwareComponent keyForRenewToken keysForToken ->
             SecureRequest.accessData (fun token ->
-                scope |> grantScope softwareComponent keyForRenewToken keysForToken token
+                scope |> grantScope currentApplication softwareComponent keyForRenewToken keysForToken token
             )
 
     let withScopeByRequest (scopeFromRequest: 'RequestData -> Scope): Authorize<'RequestData> =
-        fun softwareComponent keyForRenewToken keysForToken ->
+        fun currentApplication softwareComponent keyForRenewToken keysForToken ->
             SecureRequest.access (fun token ->
-                scopeFromRequest >> grantScope softwareComponent keyForRenewToken keysForToken token
+                scopeFromRequest >> grantScope currentApplication softwareComponent keyForRenewToken keysForToken token
             )
 
     let withScopeResultFromRequest (scopeResultFromRequest: 'RequestData -> Result<Scope, ErrorMessage>): Authorize<'RequestData> =
-        fun softwareComponent keyForRenewToken keysForToken ->
+        fun currentApplication softwareComponent keyForRenewToken keysForToken ->
             SecureRequest.access (fun token ->
                 scopeResultFromRequest >@> RequestError
-                >=> (grantScope softwareComponent keyForRenewToken keysForToken token)
+                >=> (grantScope currentApplication softwareComponent keyForRenewToken keysForToken token)
             )
 
     open Lmc.ErrorHandling.AsyncResult.Operators
@@ -85,7 +85,8 @@ module Authorize =
 
     /// Helper function to create an Operator for easier authorization
     let authorizeAction
-        (softwareComponent: Lmc.SC.DomainModel.SoftwareComponent)
+        (currentApplication: CurrentApplication)
+        (softwareComponent: AuthorizedFor)
         (keyForRenewToken: KeyForRenewToken)
         (keysForToken: JWTKey list)
         (formatError: string -> 'ErrorMessage)
@@ -96,7 +97,7 @@ module Authorize =
         = asyncResult {
             let! (renewedToken, requestData) =
                 request
-                |> authorize softwareComponent keyForRenewToken keysForToken
+                |> authorize currentApplication softwareComponent keyForRenewToken keysForToken
                 |> AsyncResult.ofResult <@> (AuthorizationError.format formatError logAuthorizationError)
 
             let! response =
