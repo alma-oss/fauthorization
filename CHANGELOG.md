@@ -2,6 +2,7 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+- [**BC**] Add `KeyForRenewToken` type to explicitly mark a JWTKey purpose
 
 ## 2.2.0 - 2021-02-16
 - Update dependencies

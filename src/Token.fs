@@ -65,6 +65,8 @@ module JwtKeyModule =
             | JWTKey key -> key.ToString()
             | ServiceAccount (Password password) -> password
 
+type KeyForRenewToken = KeyForRenewToken of JWTKey
+
 type PermissionGroup = PermissionGroup of string
 
 [<RequireQualifiedAccess>]
@@ -232,8 +234,8 @@ module JWTToken =
         |> JwtWriter().WriteTokenString
         |> JWTToken
 
-    let renew appKey (GrantedTokenData userData) =
-        use key = new SymmetricJwk(appKey |> JWTKey.value, SignatureAlgorithm.HmacSha256)
+    let renew (KeyForRenewToken keyForRenewToken) (GrantedTokenData userData) =
+        use key = new SymmetricJwk(keyForRenewToken |> JWTKey.value, SignatureAlgorithm.HmacSha256)
 
         let (GrantedToken token) = userData.GrantedToken
         let customData = [
