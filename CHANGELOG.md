@@ -2,6 +2,8 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+
+## 3.0.0 - 2021-02-18
 - Add `KeyForRenewToken` type to explicitly mark a JWTKey purpose
 - Add `CurrentApplication` type to explicitly mark a SoftwareComponent which is the Issuer and Audience of the user token
 - Add `AuthorizedFor` type to explicitly mark a SoftwareComponent which is part of the checked eligibility (permission group)
