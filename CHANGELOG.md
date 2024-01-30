@@ -2,6 +2,10 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+- [**BC**] Use net8.0
+- [**BC**] Use Alma namespace
+- Fix project metadata
+- [**BC**] Refactor `JWT` and `Authorization` modules
 
 ## 3.0.0 - 2021-02-18
 - Add `KeyForRenewToken` type to explicitly mark a JWTKey purpose

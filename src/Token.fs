@@ -1,261 +1,78 @@
-namespace Lmc.Authorization
+namespace Alma.Authorization
 
-open Lmc.SC.DomainModel
-open Lmc.Authorization.Common
-
-//
-// Errors
-//
-
-type JwtValidationError =
-    | MissingKeyData
-    | Unexpected of exn
-    | TokenStatus of string
-    | MissingUsername
-    | MissingDisplayName
-    | MissingGroups
-
-type AuthorizationError =
-    | JwtValidationError of JwtValidationError
-    | ActionIsNotGranted of string
-    | RequestError of ErrorMessage
-
-//
-// Types
-//
+open System.Net
+open System.Net.Http
+open System.IdentityModel.Tokens.Jwt
+open Alma.Authorization.Common
 
 [<RequireQualifiedAccess>]
-module UserCustomData =
-    let [<Literal>] Username = "username"
-    let [<Literal>] DisplayName = "user"
-    let [<Literal>] Groups = "groups"
+type JWT =
+    | Raw of Common.JWT
+    | SecurityToken of JwtSecurityToken
 
-[<RequireQualifiedAccess>]
-type CustomItem =
-    | String of string * string
-    | Strings of string * (string list)
+module JWT =
+    [<RequireQualifiedAccess>]
+    module private JWTSecurityToken =
+        let parse (JWT token) =
+            let jwtHandler = JwtSecurityTokenHandler()
+            jwtHandler.ReadJwtToken(token)
 
-[<AutoOpen>]
-module JwtKeyModule =
-    type JWTKey =
-        private
-        | JWTKey of System.Guid
-        | ServiceAccount of Password
+    let (|IsJWT|_|) token =
+        try token |> JWT |> JWTSecurityToken.parse |> JWT.SecurityToken |> Some
+        with _ -> None
+
+    type JWTValue =
+        | String of string
+        | Int of int
+        | Int64 of int64
+        | Bool of bool
 
     [<RequireQualifiedAccess>]
-    module JWTKey =
-        open Lmc.ErrorHandling
+    module JWTValue =
+        let tryParsePayload (payload: JwtPayload) =
+            payload
+            |> Seq.choose (fun kv ->
+                match kv.Value with
+                | :? string as value -> Some (kv.Key, String value)
+                | :? int as value -> Some (kv.Key, Int value)
+                | :? int64 as value -> Some (kv.Key, Int64 value)
+                | :? bool as value -> Some (kv.Key, Bool value)
+                | _ -> None
+            )
+            |> Seq.toList
 
-        let generate () =
-            System.Guid.NewGuid()
-            |> JWTKey
-
-        let createStatic (value: string) = result {
-            let! staticId =
-                match value |> System.Guid.TryParse with
-                | true, guid -> Ok guid
-                | _ -> Error "Invalid value - it is not a GUID"
-
-            return staticId |> JWTKey
-        }
-
-        let createForServiceAccount = ServiceAccount
-
-        let value = function
-            | JWTKey key -> key.ToString()
-            | ServiceAccount (Password password) -> password
-
-type CurrentApplication = CurrentApplication of SoftwareComponent
-type AuthorizedFor = AuthorizedFor of SoftwareComponent
-
-type KeyForRenewToken = KeyForRenewToken of JWTKey
-
-type PermissionGroup = PermissionGroup of string
-
-[<RequireQualifiedAccess>]
-module PermissionGroup =
-    let create (AuthorizedFor softwareComponent) scope =
-        sprintf "%s:%s" (softwareComponent |> SoftwareComponent.value) (scope |> Scope.value)
-        |> Hash.sha1
-        |> PermissionGroup
-
-    let value (PermissionGroup group) = group
-
-type Permission =
-    | ValidToken
-    | Group of PermissionGroup
-
-[<RequireQualifiedAccess>]
-module JWTToken =
-    open System
-    open JsonWebToken
-    open Lmc.ErrorHandling
-    open Lmc.ErrorHandling.Result.Operators
-
-    type private GrantedToken = GrantedToken of Jwt
-
-    type private UserData = {
-        Username: string
-        DisplayName: string
-        Groups: PermissionGroup list
-        GrantedToken: GrantedToken
-    }
-
-    type GrantedTokenData = private GrantedTokenData of UserData
-
-    let value (JWTToken value) = value
-
-    let private readUserData (CurrentApplication currentApp) key (JWTToken token) =
-        try
-            use key = new SymmetricJwk(key |> JWTKey.value)
-            let currentSoftwareComponent = currentApp |> SoftwareComponent.value
-
-            let policy =
-                TokenValidationPolicyBuilder()
-                    .RequireSignature(key, SignatureAlgorithm.HmacSha256)
-                    .RequireIssuer(currentSoftwareComponent)
-                    .RequireAudience(currentSoftwareComponent)
-                    .EnableLifetimeValidation(true, 10)
-                    .Build()
-
-            let jwtResult = JwtReader().TryReadToken(token, policy)
-
-            if jwtResult.Succedeed then
-                result {
-                    let! username =
-                        match jwtResult.Token.Payload.TryGetValue(UserCustomData.Username) with
-                        | true, username -> Ok (username.Value.ToString())
-                        | _ -> Error MissingUsername
-
-                    let! displayName =
-                        match jwtResult.Token.Payload.TryGetValue(UserCustomData.DisplayName) with
-                        | true, user -> Ok (user.Value.ToString())
-                        | _ -> Error MissingDisplayName
-
-                    let! groups =
-                        match jwtResult.Token.Payload.TryGetValue(UserCustomData.Groups) with
-                        | true, groups ->
-                            match groups.Value with
-                            | :? JwtArray as groups ->
-                                groups
-                                |> Seq.map (fun i -> PermissionGroup (i.Value.ToString()))
-                                |> Seq.toList
-                                |> Ok
-                            | _ -> Error MissingGroups
-                        | _ -> Error MissingGroups
-
-                    return GrantedTokenData {
-                        Username = username
-                        DisplayName = displayName
-                        Groups = groups
-                        GrantedToken = GrantedToken jwtResult.Token
-                    }
-                }
-            else
-                jwtResult.Status.ToString()
-                |> TokenStatus
-                |> Error
-        with
-        | e -> Error (Unexpected e)
-
-    let isGranted currentApp keysForToken token requiredPermission = result {
-        let allUserData =
-            keysForToken
-            |> List.map (fun key ->
-                token
-                |> readUserData currentApp key
-                <@> JwtValidationError
+        let (|Has|_|) key payloadValues =
+            payloadValues
+            |> List.tryPick (function
+                | (key', value) when key = key' -> Some value
+                | _ -> None
             )
 
-        let! userData =
-            match allUserData with
-            | [] ->
-                Error (JwtValidationError MissingKeyData)
+    type JWTClientId = JWTClientId of string
 
-            | onlyErrors when onlyErrors |> List.forall (function | Error _ -> true | _ -> false) ->
-                onlyErrors
-                |> List.head
+    let (|HasJWTAuthorization|_|) (headers: Map<string, string>) =
+        match headers |> Map.tryFind "Authorization" with
+        | Some (Regex "Bearer (.+)" [ IsJWT token ]) -> Some token
+        | _ -> None
 
-            | atLeastOneGranted when atLeastOneGranted |> List.exists (function | Ok _ -> true | _ -> false) ->
-                atLeastOneGranted
-                |> List.pick (function
-                    | Ok data -> Some (Ok data)
-                    | _ -> None
-                )
+    let (|HasPayloadValue|_|) key = function
+        | JWT.Raw (Common.JWT (IsJWT (JWT.SecurityToken jwt)))
+        | JWT.SecurityToken jwt ->
+            match jwt.Payload |> JWTValue.tryParsePayload with
+            | JWTValue.Has key value -> Some value
+            | _ -> None
+        | _ -> None
 
-            | firstError ->
-                firstError
-                |> List.pick (function
-                    | Error error -> Some (Error error)
-                    | _ -> None
-                )
+    let (|HasClientId|_|) = function
+        | HasPayloadValue "client_id" (JWTValue.String clientId) -> Some (JWTClientId clientId)
+        | _ -> None
 
-        return!
-            match requiredPermission with
-            | ValidToken -> Ok userData
-            | Group requiredGroup ->
-                match userData with
-                | GrantedTokenData { Groups = groups } when groups |> List.exists ((=) requiredGroup) -> Ok userData
-                | _ -> Error (ActionIsNotGranted "You are not authorized for this action.")
-    }
+module Test =
+    let x () =
+        let headers = ["Authorization", "Bearer token"] |> Map.ofList
 
-    let rec private addCustomData customData (descriptor: JwsDescriptor) =
-        match customData with
-        | [] -> descriptor
-
-        | CustomItem.String (key, value) :: rest ->
-            descriptor.AddClaim(key, value)
-            descriptor |> addCustomData rest
-
-        | CustomItem.Strings (key, values) :: rest ->
-            let jwtValue (value: string) = JwtValue(value)
-
-            let array =
-                values
-                |> List.map jwtValue
-                |> List.toGeneric
-                |> JwtArray
-
-            descriptor.AddClaim(key, array)
-            descriptor |> addCustomData rest
-
-    let create (CurrentApplication currentApp) appKey customData =
-        use key = new SymmetricJwk(appKey |> JWTKey.value, SignatureAlgorithm.HmacSha256)
-        let currentSoftwareComponent = currentApp |> SoftwareComponent.value
-        let now = DateTime.UtcNow
-
-        JwsDescriptor(
-            SigningKey = key,
-            JwtId = Guid.NewGuid().ToString(),
-            IssuedAt = (now |> Nullable),
-            NotBefore = (now |> Nullable),
-            ExpirationTime = (now.AddMinutes(30.0) |> Nullable),
-            Issuer = currentSoftwareComponent,
-            Audience = currentSoftwareComponent
-        )
-        |> addCustomData customData
-        |> JwtWriter().WriteTokenString
-        |> JWTToken
-
-    let renew (KeyForRenewToken keyForRenewToken) (GrantedTokenData userData) =
-        use key = new SymmetricJwk(keyForRenewToken |> JWTKey.value, SignatureAlgorithm.HmacSha256)
-
-        let (GrantedToken token) = userData.GrantedToken
-        let customData = [
-            CustomItem.String (UserCustomData.Username, userData.Username)
-            CustomItem.String (UserCustomData.DisplayName, userData.DisplayName)
-            CustomItem.Strings (UserCustomData.Groups, userData.Groups |> List.map PermissionGroup.value)
-        ]
-
-        JwsDescriptor(
-            SigningKey = key,
-            JwtId = Guid.NewGuid().ToString(),
-            IssuedAt = token.IssuedAt,
-            NotBefore = token.NotBefore,
-            ExpirationTime = (DateTime.UtcNow.AddMinutes(30.0) |> Nullable),
-            Issuer = token.Issuer,
-            Audience = (token.Audiences |> Seq.head)
-        )
-        |> addCustomData customData
-        |> JwtWriter().WriteTokenString
-        |> JWTToken
+        let client =
+            match headers with
+            | JWT.HasJWTAuthorization (JWT.HasClientId (JWT.JWTClientId clientId)) -> clientId
+            | _ -> ""
+        ()
