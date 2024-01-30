@@ -1,5 +1,6 @@
 FSharp.Core
-JsonWebToken
-Lmc.Authorization.Common
-Lmc.ErrorHandling
-Lmc.SC.DomainModel
+FSharp.Data
+Microsoft.Extensions.Logging
+System.IdentityModel.Tokens.Jwt
+Alma.Authorization.Common
+Alma.ErrorHandling

@@ -1,4 +1,4 @@
-namespace Lmc.Authorization
+namespace Alma.Authorization
 
 [<AutoOpen>]
 module internal Utils =
@@ -25,16 +25,12 @@ module internal Utils =
         let toLower (string: string) =
             string.ToLower()
 
-    [<RequireQualifiedAccess>]
-    module Hash =
-        open System
-        open System.Security.Cryptography
+    [<AutoOpen>]
+    module Regexp =
+        open System.Text.RegularExpressions
 
-        let sha1 (value: string) =
-            value
-            |> String.toBytes
-            |> HashAlgorithm.Create(HashAlgorithmName.SHA1.Name).ComputeHash
-            |> BitConverter.ToString
-            |> Seq.filter ((<>) '-')
-            |> System.String.Concat
-            |> String.toLower
+        // http://www.fssnip.net/29/title/Regular-expression-active-pattern
+        let (|Regex|_|) pattern input =
+            let m = Regex.Match(input, pattern)
+            if m.Success then Some (List.tail [ for g in m.Groups -> g.Value ])
+            else None
