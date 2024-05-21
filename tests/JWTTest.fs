@@ -4,11 +4,15 @@ open Expecto
 
 open System.IO
 open System.Net
+open Alma.ServiceIdentification
 open Alma.Authorization
+open Alma.Authorization.JWT
 
 let okOrFail = function
     | Ok x -> x
     | Error e -> failtestf "%A" e
+
+let instance (instance: string) = Create.Instance(instance) |> okOrFail
 
 type JWTClientIdTestCase = {
     Description: string
@@ -37,6 +41,82 @@ let provideJWTClientId = [
     }
 ]
 
+type JWTCreateTokenTestCase = {
+    Description: string
+    CustomData: CustomItem list
+    GroupItHas: PermissionGroup
+    GroupItHasNot: PermissionGroup
+    ExpectedUsername: string
+    ExpectedDisplayName: string
+    ExpectedClientId: string option
+}
+
+let provideJWTSymmetricToken = [
+    {
+        Description = "should create symmetric admin token"
+        CustomData = [
+            CustomItem.String (UserCustomData.Username, "admin")
+            CustomItem.String (UserCustomData.DisplayName, "administrátor")
+            CustomItem.Strings (UserCustomData.Groups, [ "local" ])
+            CustomItem.String ("client_id", "admin-client-id")
+        ]
+        GroupItHas = PermissionGroup "local"
+        GroupItHasNot = PermissionGroup "admin"
+        ExpectedUsername = "admin"
+        ExpectedDisplayName = "administrátor"
+        ExpectedClientId = Some "admin-client-id"
+    }
+    {
+        Description = "should create symmetric user token"
+        CustomData = [
+            CustomItem.String (UserCustomData.Username, "prijmenij")
+            CustomItem.String (UserCustomData.DisplayName, "Jméno Příjmení")
+            CustomItem.Strings (UserCustomData.Groups, [ "user"; "team-member" ])
+        ]
+        GroupItHas = PermissionGroup "team-member"
+        GroupItHasNot = PermissionGroup "local"
+        ExpectedUsername = "prijmenij"
+        ExpectedDisplayName = "Jméno Příjmení"
+        ExpectedClientId = None
+    }
+]
+
+let private validateJWT currentInstance tokenKey tc token =
+    let isJWT =
+        match token |> SymmetricJWT.value with
+        | JWT.IsJWT _ -> true
+        | _ -> false
+    Expect.isTrue isJWT tc.Description
+
+    let clientId =
+        match JWT.Raw token with
+        | JWT.HasClientId (JWT.JWTClientId clientId) -> Some clientId
+        | _ -> None
+    Expect.equal tc.ExpectedClientId clientId tc.Description
+
+    let username =
+        match JWT.Raw token with
+        | JWT.HasUsername username -> username
+        | _ -> failtestf "Username not found in JWT token."
+    Expect.equal tc.ExpectedUsername username tc.Description
+
+    let displayName =
+        match JWT.Raw token with
+        | JWT.HasDisplayName displayName -> displayName
+        | _ -> failtestf "DisplayName not found in JWT token."
+    Expect.equal tc.ExpectedDisplayName displayName tc.Description
+
+    let isGranted = ValidToken |> SymmetricJWT.isGranted currentInstance [ tokenKey ] token
+    Expect.isOk isGranted tc.Description
+
+    let isGrantedByGroup = Group tc.GroupItHas |> SymmetricJWT.isGranted currentInstance [ tokenKey ] token
+    Expect.isOk isGrantedByGroup tc.Description
+
+    let isNotGrantedByGroup = Group tc.GroupItHasNot |> SymmetricJWT.isGranted currentInstance [ tokenKey ] token
+    Expect.equal isNotGrantedByGroup (Error (ActionIsNotGranted "You are not authorized for this action.")) tc.Description
+
+    isGranted |> okOrFail
+
 [<Tests>]
 let jwtTest =
     testList "Authorization - JWT" [
@@ -50,5 +130,26 @@ let jwtTest =
                         | _ -> None
 
                     Expect.equal tc.Expected client tc.Description
+            )
+
+        yield!
+            provideJWTSymmetricToken
+            |> List.map (fun tc ->
+                testCase tc.Description <| fun _ ->
+                    let currentInstance = instance "prc-jwt-test-test"
+                    let tokenKey = JWTKey.local "edbe2f5a-4d4a-4975-98b6-b794532e9732"
+
+                    let token = SymmetricJWT.create currentInstance tokenKey tc.CustomData
+
+                    let isGranted = token |> validateJWT currentInstance tokenKey tc
+
+                    let renewedToken = isGranted |> SymmetricJWT.renew tokenKey
+                    renewedToken
+                    |> validateJWT currentInstance tokenKey {
+                        tc with
+                            Description = tc.Description + " - renewed"
+                            ExpectedClientId = None // client_id is not passed to renew token ATM
+                    }
+                    |> ignore
             )
     ]

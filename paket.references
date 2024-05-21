@@ -2,5 +2,8 @@ FSharp.Core
 FSharp.Data
 Microsoft.Extensions.Logging
 System.IdentityModel.Tokens.Jwt
+JsonWebToken
+gfoidl.Base64
 Alma.Authorization.Common
 Alma.ErrorHandling
+Alma.ServiceIdentification
