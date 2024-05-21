@@ -2,6 +2,19 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+- Add types and functions to `JWT` module
+    - `AuthorizationError`
+    - `CustomItem`
+    - `HasDisplayNam`
+    - `HasUsername`
+    - `JWTKey`
+    - `JwtValidationError`
+    - `Permission`
+    - `PermissionGroup`
+    - `SymmetricJWT`
+    - `UserCustomData`
+- Add `Authenticate` type
+- Add `User` module
 
 ## 4.0.0 - 2024-01-30
 - [**BC**] Use net8.0
