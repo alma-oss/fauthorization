@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <Compile Include="JWTTest.fs" />
+    <Compile Include="AuthorizationTest.fs" />
     <Compile Include="Tests.fs" />
   </ItemGroup>
 
