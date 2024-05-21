@@ -35,6 +35,12 @@ module Credentials =
         | _, Password "" -> Error EmptyPassword
         | username, password -> Ok { Username = username; Password = password }
 
+type Authenticate = Authenticate of (Credentials -> Result<User, string>)
+
+[<RequireQualifiedAccess>]
+module User =
+    let login (Authenticate auth) = auth
+
 type ACLClient = {
     ClientName: string
     ClientId: string
