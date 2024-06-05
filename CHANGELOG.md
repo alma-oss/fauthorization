@@ -2,6 +2,8 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+
+## 5.0.0 - 2024-06-05
 - Add `Action` type with 2 cases
     - `Request` - the previous action, same as it was before
     - `RequestWithUsername` - new case which allows to get a username out of a renewed token
