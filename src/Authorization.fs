@@ -106,19 +106,37 @@ module Authorize =
             | RequestError error ->
                 error |> formatError |> SecuredRequestError.AuthorizationError
 
+    type Action<'RequestData, 'ResponseData, 'Error> =
+        | Request of ('RequestData -> AsyncResult<'ResponseData, 'Error>)
+        | RequestWithUsername of (Username -> 'RequestData -> AsyncResult<'ResponseData, 'Error>)
+
     /// Helper function to create an Operator for easier authorization
     let authorizeAction
         authorization
         (formatError: string -> 'Error)
         (logAuthorizationError: string -> unit)
         (authorize: Authorize<'RequestData>)
-        (action: 'RequestData -> AsyncResult<'ResponseData, 'Error>)
+        (action: Action<'RequestData, 'ResponseData, 'Error>)
         (request: SecureRequest<'RequestData>): AsyncResult<RenewedToken * 'ResponseData, SecuredRequestError<'Error>>
         = asyncResult {
             let! (renewedToken, requestData) =
                 request
                 |> authorize authorization
                 |> AsyncResult.ofResult <@> (AuthorizationError.format formatError logAuthorizationError)
+
+            let! action =
+                match action with
+                | Request request -> Ok request
+                | RequestWithUsername request ->
+                    result {
+                        let! username =
+                            renewedToken
+                            |> RenewedToken.username authorization.CurrentApplication authorization.KeyForRenewToken
+                            // this error should not happen, because the token is already validated
+                            |> Result.mapError (fun e -> SecuredRequestError.TokenError (formatError "Unable to get a username from the token."))
+
+                        return request username
+                    }
 
             let! response =
                 requestData

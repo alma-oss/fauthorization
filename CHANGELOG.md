@@ -2,6 +2,10 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+- Add `Action` type with 2 cases
+    - `Request` - the previous action, same as it was before
+    - `RequestWithUsername` - new case which allows to get a username out of a renewed token
+- [**BC**] Change `authorizeAction` parameter `action` to be a type `Action`
 
 ## 4.2.0 - 2024-05-23
 - Add types and modules
