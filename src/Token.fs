@@ -213,6 +213,11 @@ module JWT =
             with
             | e -> Error (Unexpected e)
 
+        let internal username currentApplication key token =
+            token
+            |> readUserData currentApplication key
+            |> Result.map (fun (GrantedTokenData { Username = username }) -> Username username)
+
         let isGranted currentApp keysForToken token requiredPermission = result {
             let allUserData =
                 keysForToken
@@ -314,3 +319,8 @@ module JWT =
             |> addCustomData customData
             |> JwtWriter().WriteTokenString
             |> JWT
+
+    [<RequireQualifiedAccess>]
+    module internal RenewedToken =
+        let username currentApplication key (RenewedToken token) =
+            token |> SymmetricJWT.username currentApplication key

@@ -20,7 +20,7 @@ type AuthorizationTestCase<'Data, 'Success, 'Error> = {
     Description: string
     Authorization: Authorization
     Authorize: Authorize.Authorize<'Data>
-    Action: 'Data -> AsyncResult<'Success, 'Error>
+    Action: Authorize.Action<'Data, 'Success, 'Error>
     /// This is normally prepared by the client - see Alma.Fable.Authorization Secure.secureApi function
     Request: SecureRequest<'Data>
     ValidateToken: RenewedToken -> unit
@@ -51,7 +51,7 @@ let provideAuthorizations: AuthorizationTestCase<string, string, string> list = 
         Description = "should authorize action with login"
         Authorization = authorization
         Authorize = Authorize.withLogin
-        Action = action
+        Action = Authorize.Action.Request action
         Request = {
             Token = SecurityToken jwt
             RequestData = "data"
@@ -63,7 +63,7 @@ let provideAuthorizations: AuthorizationTestCase<string, string, string> list = 
         Description = "should authorize action with group"
         Authorization = authorization
         Authorize = Authorize.withGroup (PermissionGroup "user")
-        Action = action
+        Action = Authorize.Action.Request action
         Request = {
             Token = SecurityToken jwt
             RequestData = "data"
@@ -75,7 +75,38 @@ let provideAuthorizations: AuthorizationTestCase<string, string, string> list = 
         Description = "should NOT authorize action with group"
         Authorization = authorization
         Authorize = Authorize.withGroup (PermissionGroup "admin")
-        Action = action
+        Action = Authorize.Action.Request action
+        Request = {
+            Token = SecurityToken jwt
+            RequestData = "data"
+        }
+        ValidateToken = ignore  // todo - maybe later
+        Expected = Error (SecuredRequestError.AuthorizationError "Action is not granted! You are not authorized for this action.")
+    }
+    {
+        Description = "should authorize action with login and pass a username"
+        Authorization = authorization
+        Authorize = Authorize.withLogin
+        Action =
+            Authorize.Action.RequestWithUsername (fun username ->
+                Expect.equal (Username "user") username "Username should be passed in."
+                action
+            )
+        Request = {
+            Token = SecurityToken jwt
+            RequestData = "data"
+        }
+        ValidateToken = ignore  // todo - maybe later
+        Expected = Ok "response"
+    }
+    {
+        Description = "should NOT authorize action with group and not pass a username"
+        Authorization = authorization
+        Authorize = Authorize.withGroup (PermissionGroup "admin")
+        Action =
+            Authorize.Action.RequestWithUsername (fun username ->
+                failtestf "Username should not be passed in."
+            )
         Request = {
             Token = SecurityToken jwt
             RequestData = "data"
