@@ -2,6 +2,8 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+
+## 5.1.0 - 2024-06-06
 - Add `AmazonJWT` module
 - Add `AmazonJWT.Authenticate` module
 
