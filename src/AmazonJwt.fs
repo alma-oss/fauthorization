@@ -15,6 +15,7 @@ module AmazonJWT =
 
     open Alma.ErrorHandling
     open Alma.ErrorHandling.AsyncResult.Operators
+    open Alma.Authorization.Common
 
     /// For whole Alma, defined in CDK
     let [<Literal>] private DefaultAzureTenantId = "01407f79-96ab-46cb-b400-ae6062f4429a"
@@ -62,6 +63,11 @@ module AmazonJWT =
         | JWTValidationFailed of string
         | JWTValidationError of exn
         | JWTError of exn
+
+    type OidcUser = {
+        User: User
+        Claims: AmazonJWTClaims
+    }
 
     [<RequireQualifiedAccess>]
     module JWT =
@@ -135,4 +141,35 @@ module AmazonJWT =
                     }
 
             with e -> return! Error (JWTError e)
+        }
+
+    [<RequireQualifiedAccess>]
+    module Authenticate =
+        open Alma.Authorization.JWT
+
+        let [<Literal>] AmazonOidcDataHeader = "x-amzn-oidc-data"
+
+        let withOidcHeader currentInstance tokenKey amazonDependencies headers = asyncResult {
+            let! oidcJwt =
+                headers
+                |> List.tryPick (function
+                    | AmazonOidcDataHeader, token -> Some token
+                    | _ -> None
+                )
+                |> Result.ofOption (HttpError "Amazon JWT token not found in headers.")
+
+            let! claims = oidcJwt |> JWT.read amazonDependencies
+
+            return {
+                Claims = claims
+                User = {
+                    Username = Username claims.Email
+                    Token =
+                        SymmetricJWT.create currentInstance tokenKey [
+                            CustomItem.String (UserCustomData.Username, claims.Email)
+                            CustomItem.String (UserCustomData.DisplayName, claims.Name)
+                            CustomItem.Strings (UserCustomData.Groups, [])
+                        ]
+                }
+            }
         }
