@@ -44,7 +44,7 @@ let provideJWTClientId = [
 type JWTCreateTokenTestCase = {
     Description: string
     CustomData: CustomItem list
-    GroupItHas: PermissionGroup
+    GroupItHas: PermissionGroup option
     GroupItHasNot: PermissionGroup
     ExpectedUsername: string
     ExpectedDisplayName: string
@@ -60,7 +60,7 @@ let provideJWTSymmetricToken = [
             CustomItem.Strings (UserCustomData.Groups, [ "local" ])
             CustomItem.String ("client_id", "admin-client-id")
         ]
-        GroupItHas = PermissionGroup "local"
+        GroupItHas = PermissionGroup "local" |> Some
         GroupItHasNot = PermissionGroup "admin"
         ExpectedUsername = "admin"
         ExpectedDisplayName = "administrátor"
@@ -73,7 +73,7 @@ let provideJWTSymmetricToken = [
             CustomItem.String (UserCustomData.DisplayName, "Jméno Příjmení")
             CustomItem.Strings (UserCustomData.Groups, [ "user"; "team-member" ])
         ]
-        GroupItHas = PermissionGroup "team-member"
+        GroupItHas = PermissionGroup "team-member" |> Some
         GroupItHasNot = PermissionGroup "local"
         ExpectedUsername = "prijmenij"
         ExpectedDisplayName = "Jméno Příjmení"
@@ -81,7 +81,7 @@ let provideJWTSymmetricToken = [
     }
 ]
 
-let private validateJWT currentInstance tokenKey tc token =
+let validateJWT currentInstance tokenKey tc token =
     let isJWT =
         match token |> SymmetricJWT.value with
         | JWT.IsJWT _ -> true
@@ -109,8 +109,11 @@ let private validateJWT currentInstance tokenKey tc token =
     let isGranted = ValidToken |> SymmetricJWT.isGranted currentInstance [ tokenKey ] token
     Expect.isOk isGranted tc.Description
 
-    let isGrantedByGroup = Group tc.GroupItHas |> SymmetricJWT.isGranted currentInstance [ tokenKey ] token
-    Expect.isOk isGrantedByGroup tc.Description
+    match tc.GroupItHas with
+    | Some expectedGroup ->
+        let isGrantedByGroup = Group expectedGroup |> SymmetricJWT.isGranted currentInstance [ tokenKey ] token
+        Expect.isOk isGrantedByGroup tc.Description
+    | _ -> ()
 
     let isNotGrantedByGroup = Group tc.GroupItHasNot |> SymmetricJWT.isGranted currentInstance [ tokenKey ] token
     Expect.equal isNotGrantedByGroup (Error (ActionIsNotGranted "You are not authorized for this action.")) tc.Description

@@ -17,6 +17,7 @@
   <ItemGroup>
     <Compile Include="JWTTest.fs" />
     <Compile Include="AuthorizationTest.fs" />
+    <Compile Include="AmazonJWTTest.fs" />
     <Compile Include="Tests.fs" />
   </ItemGroup>
 
