@@ -1,10 +1,10 @@
-framework: net8.0
+framework: net9.0
 
 source https://api.nuget.org/v3/index.json
-nuget FSharp.Core ~> 8.0
+nuget FSharp.Core ~> 9.0
 nuget FSharp.Data ~> 6.0
-nuget Microsoft.Extensions.Logging ~> 8.0
-nuget System.IdentityModel.Tokens.Jwt ~> 7.3
+nuget Microsoft.Extensions.Logging ~> 9.0
+nuget System.IdentityModel.Tokens.Jwt ~> 8.6
 nuget Portable.BouncyCastle ~> 1.9
 
 nuget JsonWebToken ~> 1.9
@@ -12,9 +12,9 @@ nuget JsonWebToken ~> 1.9
 nuget gfoidl.Base64 ~> 1.1.1
 
 source https://nuget.pkg.github.com/almacareer/index.json username: "%PRIVATE_FEED_USER%" password: "%PRIVATE_FEED_PASS%"
-nuget Alma.Authorization.Common ~> 4.1
-nuget Alma.ErrorHandling ~> 9.0
-nuget Alma.ServiceIdentification ~> 9.0
+nuget Alma.Authorization.Common ~> 5.1
+nuget Alma.ErrorHandling ~> 10.0
+nuget Alma.ServiceIdentification ~> 10.0
 
 nuget Expecto
 nuget YoloDev.Expecto.TestSdk
