@@ -113,7 +113,7 @@ module AmazonJWT =
                         ValidateIssuer = true,
                         ValidIssuer = $"https://login.microsoftonline.com/{azureTenantId}/v2.0",
                         ValidateLifetime = dependencies.ValidateLifetime,
-                        ClockSkew = TimeSpan.FromMinutes(2),
+                        ClockSkew = TimeSpan.FromMinutes(int64 2),
                         ValidAlgorithms = [ SecurityAlgorithms.EcdsaSha256 ]
                         // fsharplint:enable
                     )

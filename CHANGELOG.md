@@ -2,6 +2,7 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+- [**BC**] Use net9.0
 
 ## 5.1.0 - 2024-06-06
 - Add `AmazonJWT` module
