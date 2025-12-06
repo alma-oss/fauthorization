@@ -24,8 +24,8 @@ type Authorization = {
 
 [<RequireQualifiedAccess>]
 module Authorize =
-    open Alma.ErrorHandling
-    open Alma.ErrorHandling.Result.Operators
+    open Feather.ErrorHandling
+    open Feather.ErrorHandling.Result.Operators
 
     [<RequireQualifiedAccess>]
     module private SecureRequest =
@@ -84,7 +84,7 @@ module Authorize =
                 >=> (grantScope instance appKey keysForToken token)
             ) *)
 
-    open Alma.ErrorHandling.AsyncResult.Operators
+    open Feather.ErrorHandling.AsyncResult.Operators
 
     [<RequireQualifiedAccess>]
     module private AuthorizationError =

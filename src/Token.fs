@@ -144,8 +144,8 @@ module JWT =
         open System
         open JsonWebToken
         open Alma.ServiceIdentification
-        open Alma.ErrorHandling
-        open Alma.ErrorHandling.Result.Operators
+        open Feather.ErrorHandling
+        open Feather.ErrorHandling.Result.Operators
 
         type private GrantedToken = GrantedToken of Jwt
 

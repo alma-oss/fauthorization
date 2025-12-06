@@ -51,7 +51,7 @@ type ACLClient = {
 module ACLClient =
     open FSharp.Data
     open Microsoft.Extensions.Logging
-    open Alma.ErrorHandling
+    open Feather.ErrorHandling
 
     type private ACLClientSchema = JsonProvider<"src/schema/aclClient.json", SampleIsList = true>
 

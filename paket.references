@@ -6,5 +6,5 @@ JsonWebToken
 gfoidl.Base64
 Portable.BouncyCastle
 Alma.Authorization.Common
-Alma.ErrorHandling
+Feather.ErrorHandling
 Alma.ServiceIdentification
