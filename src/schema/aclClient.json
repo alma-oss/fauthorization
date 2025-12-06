@@ -1,6 +1,6 @@
 [
     {
-        "clientName": "consents-client",
+        "clientName": "domain-client",
         "clientId": "foo123bar456",
         "origin": "alma-career-czechia"
     }

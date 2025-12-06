@@ -1,17 +1,16 @@
 RESTRICTION: == net9.0
 NUGET
-  remote: https://nuget.pkg.github.com/almacareer/index.json
-    Alma.Authorization.Common (5.1.0)
-      FSharp.Core (>= 9.0.201 < 10.0)
-    Alma.ErrorHandling (10.0.0)
-      FSharp.Core (>= 9.0.201 < 10.0)
-    Alma.ServiceIdentification (10.0.0)
-      FSharp.Core (>= 9.0.201 < 10.0)
   remote: https://api.nuget.org/v3/index.json
+    Alma.Authorization.Common (6.0)
+      FSharp.Core (>= 9.0.201 < 10.0)
+    Alma.ServiceIdentification (10.1)
+      FSharp.Core (>= 9.0.201 < 10.0)
     Expecto (10.2.2)
       FSharp.Core (>= 7.0.200)
       Mono.Cecil (>= 0.11.4 < 1.0)
-    FSharp.Core (9.0.201)
+    Feather.ErrorHandling (1.0)
+      FSharp.Core (>= 9.0.201 < 10.0)
+    FSharp.Core (9.0.303)
     FSharp.Data (6.6)
       FSharp.Core (>= 6.0.1)
       FSharp.Data.Csv.Core (>= 6.6)

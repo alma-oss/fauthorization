@@ -5,7 +5,7 @@ open Expecto
 open System.IO
 open System.Net
 open Alma.ServiceIdentification
-open Alma.ErrorHandling
+open Feather.ErrorHandling
 open Alma.Authorization
 open Alma.Authorization.Common
 open Alma.Authorization.JWT
