@@ -282,7 +282,7 @@ module JWT =
     open JsonWebToken
 
     [<AutoOpen>]
-    module private JWTResult =
+    module internal JWTResult =
         let getPayloadValue (jwtResult: TokenValidationResult) (key: string) =
             match jwtResult.Token.Payload.TryGetValue(key) with
             | true, value -> Some (value.Value.ToString())
@@ -294,13 +294,15 @@ module JWT =
             | true, value -> Some (value.Value.ToString())
             | _ -> None
 
+        let tryParseDateTimeOffset (value: obj) =
+            match value with
+            | :? int64 as unixTime -> Some (DateTimeOffset.FromUnixTimeSeconds(unixTime))
+            | :? int as unixTime -> Some (DateTimeOffset.FromUnixTimeSeconds(int64 unixTime))
+            | _ -> None
+
         let getDateTimeOffset (jwtResult: TokenValidationResult) (key: string) =
             match jwtResult.Token.Payload.TryGetValue(key) with
-            | true, value ->
-                match value.Value with
-                | :? int64 as unixTime -> Some (DateTimeOffset.FromUnixTimeSeconds(unixTime))
-                | :? int as unixTime -> Some (DateTimeOffset.FromUnixTimeSeconds(int64 unixTime))
-                | _ -> None
+            | true, value -> value.Value |> tryParseDateTimeOffset
             | _ -> None
 
         let getGroups (jwtResult: TokenValidationResult) (key: string) =

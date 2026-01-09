@@ -17,6 +17,7 @@
     - `JwtValidationError.InvalidKey`
     - `AuthorizationError.InvalidKey`
 - Add types for Asymmetric keys and more detailed JWT manipulations
+- Add `AmazonJWT` module
 
 ## 7.0.0 - 2025-12-06
 - [**BC**] Move repository
