@@ -21,7 +21,7 @@
         <Compile Include="src/Utils.fs" />
         <Compile Include="src/Types.fs" />
         <Compile Include="src/Token.fs" />
-        <Compile Include="src/Authorization.fs" />
+        <Compile Include="src/SessionAuthorization.fs" />
     </ItemGroup>
 
     <Import Project=".paket\Paket.Restore.targets" />
