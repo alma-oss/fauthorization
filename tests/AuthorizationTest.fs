@@ -6,7 +6,7 @@ open System.IO
 open System.Net
 open Alma.ServiceIdentification
 open Feather.ErrorHandling
-open Alma.Authorization
+open Alma.Authorization.Session
 open Alma.Authorization.Common
 open Alma.Authorization.JWT
 
@@ -29,19 +29,21 @@ type AuthorizationTestCase<'Data, 'Success, 'Error> = {
 
 let provideAuthorizations: AuthorizationTestCase<string, string, string> list = [
     let currentApp = instance "prc-app-common-stable"
-    let key = JWTKey.local "482caea0-4162-4fcd-9a29-94fd77477f7d"
+    let key = JWTKey.Symmetric.tryParse "482caea0-4162-4fcd-9a29-94fd77477f7d" |> Result.ofOption "Invalid key" |> okOrFail
     let authorization = {
         CurrentApplication = currentApp
         AuthorizedFor = currentApp
         KeyForRenewToken = key
-        AuthorizedBy = AuthorizedBy.Key key
+        AuthorizedBy = AuthorizedBy.AppKey key
     }
 
-    let jwt = SymmetricJWT.create currentApp key [
-        CustomItem.String (UserCustomData.Username, "user")
-        CustomItem.String (UserCustomData.DisplayName, "Uživatel")
-        CustomItem.Strings (UserCustomData.Groups, [ "user" ])
-    ]
+    let jwt =
+        SessionJWT.create currentApp key [] {
+            Username = "user"
+            DisplayName = "Uživatel"
+            Groups = [ PermissionGroup "user" ]
+        }
+        |> okOrFail
 
     let action = function
         | "data" -> AsyncResult.ofSuccess "response"

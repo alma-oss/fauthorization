@@ -2,6 +2,22 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+- [**BC**] Rename
+    - `SymmetricJWT` module to `SessionJWT`
+    - `RenewedToken` to `RenewedSessionToken`
+- Add *generic* `JWT` module
+- [**BC**] Move `Authorize` module etc. under the `Session` module and simplify the internals
+- [**BC**] Drop cases
+    - `JWTKey.Local`
+    - `AuthorizedBy.OneOf`
+- Add `JWT.Common` member
+- [**BC**] Move symmetric key function under `JWTKey.Symmetric` module
+- Add cases
+    - `JWTKey.AsymmetricKey`
+    - `JwtValidationError.InvalidKey`
+    - `AuthorizationError.InvalidKey`
+- Add types for Asymmetric keys and more detailed JWT manipulations
+- Add `AmazonJWT` module
 
 ## 7.0.0 - 2025-12-06
 - [**BC**] Move repository

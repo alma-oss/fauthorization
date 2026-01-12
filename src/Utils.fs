@@ -3,6 +3,10 @@ namespace Alma.Authorization
 [<AutoOpen>]
 module internal Utils =
 
+    let tee f a =
+        f a
+        a
+
     type ErrorMessage = string
 
     [<RequireQualifiedAccess>]

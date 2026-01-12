@@ -2,21 +2,41 @@ module Alma.Authorization.JWTTest
 
 open Expecto
 
+open System
 open System.IO
 open System.Net
 open Alma.ServiceIdentification
 open Alma.Authorization
 open Alma.Authorization.JWT
+open Feather.ErrorHandling
 
 let okOrFail = function
     | Ok x -> x
     | Error e -> failtestf "%A" e
 
 let instance (instance: string) = Create.Instance(instance) |> okOrFail
+let publicRSAKey pemName =
+    let pemPath = Path.Combine("Fixtures", pemName)
+
+    {
+        Pem = File.ReadAllText(pemPath)
+        Algorithm = Rsa
+    }
+    |> PublicPem
+    |> Public
+    |> Asymmetric
+
+type Validation = {
+    Key: JWTKey
+    Requirements: Requirement list
+    ExpectedResult: Result<TokenData, JWT.AuthorizationError>
+}
 
 type JWTClientIdTestCase = {
     Description: string
     Headers: Map<string, string>
+    /// If passed, jwt must be valid by this key
+    ShouldBeValid: Validation option
     Expected: string option
 }
 
@@ -25,10 +45,43 @@ let provideJWTClientId = [
         Description = "should find a client_id in JWT payload"
         Headers =
             [
-                "Authorization", "Bearer eyJraWQiOiIzVUlSUEZsaklCNkxnYnJ2aEd6cEFOVjhkalI4N3VmUHY0Z1k2XC9rbjJEUT0iLCJhbGciOiJSUzI1NiJ9.eyJzdWIiOiI2bXA0Z3M4ODJyY2RtYWVoMDAxY281ZXJxZCIsInRva2VuX3VzZSI6ImFjY2VzcyIsInNjb3BlIjoiY29uc2VudHMtYWNsSW50ZXJhY3Rpb25FbnRyeS1kZXYtc3RhYmxlXC9iYXNpYy5yZWFkIiwiYXV0aF90aW1lIjoxNzA2NTMyNzkyLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAuZXUtd2VzdC0xLmFtYXpvbmF3cy5jb21cL2V1LXdlc3QtMV9iVGJLbG9nb0wiLCJleHAiOjE3MDY2MTkxOTIsImlhdCI6MTcwNjUzMjc5MiwidmVyc2lvbiI6MiwianRpIjoiOGU1YjAyYzktMWIxMi00NWU1LWIzYTYtMDA5MzUzNTU5OTk0IiwiY2xpZW50X2lkIjoiNm1wNGdzODgycmNkbWFlaDAwMWNvNWVycWQifQ.aUWk5niUUAWLDzO4AnPHhtf3btX4Mpgup2w0EHf5l8HZSPAkECNTBprQLndjgz4smbNg26QM5KiIyHHiuhr3xOh84MW6orPz03344dx2-ARCSrjVm2Ix2bugDcsE6rXkCkjkuxixc5IOWMIni_bE1AOrGpfEt_k66c79Src2qnxu817RSlDtFrjiZSm8z5z0pwWLJzYCRwtljch8-KmIWIbUBRaVtlsKBQDq6oP8NfqeHgbHTFCeaU721aq5ZNkGWR0tP1PYg0JZwQPj0uPcFtfB6Q5CMlgqwjvAX_ZFOvzWo5QTqf85K_vyH15NQaGqeNzRP6FrtdxIC_qj9DmaKg"
+                "Authorization", "Bearer eyJraWQiOiJiOGNlZGJkMi01YmZjLTRiZTktOGY2Yy0yNWQxMzFmNGFmN2MiLCJhbGciOiJSUzI1NiJ9.eyJzdWIiOiI3NmUwZDg0ZC01N2RlLTRkYzktYWNlNy1lNmE2NTdlMTczY2QiLCJ0b2tlbl91c2UiOiJhY2Nlc3MiLCJzY29wZSI6ImRvbWFpbi1jb250ZXh0LXB1cnBvc2UtdmVyc2lvbi9iYXNpYy5yZWFkIiwiYXV0aF90aW1lIjoxNzA2NTMyNzkyLCJpc3MiOiJodHRwczovL2F1dGguc3ZjIiwiZXhwIjoxNzA2NjE5MTkyLCJpYXQiOjE3MDY1MzI3OTIsInZlcnNpb24iOjIsImp0aSI6ImIwMjkxNjRmLWEzMjUtNDc3ZS1iNWEyLTljNGViMGM2MGUzZSIsImNsaWVudF9pZCI6Ijc2ZTBkODRkLTU3ZGUtNGRjOS1hY2U3LWU2YTY1N2UxNzNjZCJ9.uhJHoqxf8Ef-ip5vg3T3l-v_NZiGh6W4x5AXkqnYssCX1NTL4Kw-auWOsR71YSoB5db8UPkItVRpeOr-Sx1_1EY4RQe3o3Vo3ssfOdddvV3VExexdH2e7HEOXb2YS0U335mg2tbReQT1dZWQwaGmq8lXRAokCTYSHt0g96zpImCxnI-C17J4InTVr8sc7bEKMvhNdSWEPWFoFLOjfmQ6xP-ebRqWchlkKZK5jYZs-lQLJ7xecmzm1Xx3K-PPeYJWuzS3GNwBYEFVj7W_MSycs6M8GMPljBOn0kPVAGXoyh9GaTwzqWBUfxQuKeUYip9lIYBXTzg0NqVko6h9njQZig"
             ]
             |> Map.ofList
-        Expected = Some "6mp4gs882rcdmaeh001co5erqd"
+        ShouldBeValid = Some {
+            Key = publicRSAKey "test-public-key.pem"
+            Requirements = []
+            ExpectedResult = Ok {
+                Username = None
+                DisplayName = None
+                Groups = []
+                Scope = Some "domain-context-purpose-version/basic.read"
+                Issuer = Some "https://auth.svc"
+                Expiration = Some (DateTimeOffset.FromUnixTimeSeconds 1706619192L)
+                ClientId = Some "76e0d84d-57de-4dc9-ace7-e6a657e173cd"
+                Name = None
+                FamilyName = None
+                GivenName = None
+                Picture = None
+                Email = None
+                Client = None
+            }
+        }
+        Expected = Some "76e0d84d-57de-4dc9-ace7-e6a657e173cd"
+    }
+    {
+        Description = "should find client id but fail on expiration"
+        Headers =
+            [
+                "Authorization", "Bearer eyJraWQiOiJiOGNlZGJkMi01YmZjLTRiZTktOGY2Yy0yNWQxMzFmNGFmN2MiLCJhbGciOiJSUzI1NiJ9.eyJzdWIiOiI3NmUwZDg0ZC01N2RlLTRkYzktYWNlNy1lNmE2NTdlMTczY2QiLCJ0b2tlbl91c2UiOiJhY2Nlc3MiLCJzY29wZSI6ImRvbWFpbi1jb250ZXh0LXB1cnBvc2UtdmVyc2lvbi9iYXNpYy5yZWFkIiwiYXV0aF90aW1lIjoxNzA2NTMyNzkyLCJpc3MiOiJodHRwczovL2F1dGguc3ZjIiwiZXhwIjoxNzA2NjE5MTkyLCJpYXQiOjE3MDY1MzI3OTIsInZlcnNpb24iOjIsImp0aSI6ImIwMjkxNjRmLWEzMjUtNDc3ZS1iNWEyLTljNGViMGM2MGUzZSIsImNsaWVudF9pZCI6Ijc2ZTBkODRkLTU3ZGUtNGRjOS1hY2U3LWU2YTY1N2UxNzNjZCJ9.uhJHoqxf8Ef-ip5vg3T3l-v_NZiGh6W4x5AXkqnYssCX1NTL4Kw-auWOsR71YSoB5db8UPkItVRpeOr-Sx1_1EY4RQe3o3Vo3ssfOdddvV3VExexdH2e7HEOXb2YS0U335mg2tbReQT1dZWQwaGmq8lXRAokCTYSHt0g96zpImCxnI-C17J4InTVr8sc7bEKMvhNdSWEPWFoFLOjfmQ6xP-ebRqWchlkKZK5jYZs-lQLJ7xecmzm1Xx3K-PPeYJWuzS3GNwBYEFVj7W_MSycs6M8GMPljBOn0kPVAGXoyh9GaTwzqWBUfxQuKeUYip9lIYBXTzg0NqVko6h9njQZig"
+            ]
+            |> Map.ofList
+        ShouldBeValid = Some {
+            Key = publicRSAKey "test-public-key.pem"
+            Requirements = [ NotExpired ]
+            ExpectedResult = Error (JwtValidationError (TokenStatus "Expired"))
+        }
+        Expected = Some "76e0d84d-57de-4dc9-ace7-e6a657e173cd"
     }
     {
         Description = "should NOT find a client_id in invalid JWT payload"
@@ -37,13 +90,14 @@ let provideJWTClientId = [
                 "Authorization", "Bearer token.token.token"
             ]
             |> Map.ofList
+        ShouldBeValid = None
         Expected = None
     }
 ]
 
-type JWTCreateTokenTestCase = {
+type JWTSessionTokenTestCase = {
     Description: string
-    CustomData: CustomItem list
+    CustomData: CustomItem list * SessionJWT.SessionData
     GroupItHas: PermissionGroup option
     GroupItHasNot: PermissionGroup
     ExpectedUsername: string
@@ -51,15 +105,18 @@ type JWTCreateTokenTestCase = {
     ExpectedClientId: string option
 }
 
-let provideJWTSymmetricToken = [
+let provideJWTSessionToken = [
     {
         Description = "should create symmetric admin token"
-        CustomData = [
-            CustomItem.String (UserCustomData.Username, "admin")
-            CustomItem.String (UserCustomData.DisplayName, "administrátor")
-            CustomItem.Strings (UserCustomData.Groups, [ "local" ])
-            CustomItem.String ("client_id", "admin-client-id")
-        ]
+        CustomData =
+            [
+                CustomItem.String ("client_id", "admin-client-id")
+            ],
+            {
+                Username = "admin"
+                DisplayName = "administrátor"
+                Groups = [ PermissionGroup "local" ]
+            }
         GroupItHas = PermissionGroup "local" |> Some
         GroupItHasNot = PermissionGroup "admin"
         ExpectedUsername = "admin"
@@ -68,11 +125,13 @@ let provideJWTSymmetricToken = [
     }
     {
         Description = "should create symmetric user token"
-        CustomData = [
-            CustomItem.String (UserCustomData.Username, "prijmenij")
-            CustomItem.String (UserCustomData.DisplayName, "Jméno Příjmení")
-            CustomItem.Strings (UserCustomData.Groups, [ "user"; "team-member" ])
-        ]
+        CustomData =
+            [],
+            {
+                Username = "prijmenij"
+                DisplayName = "Jméno Příjmení"
+                Groups = [ PermissionGroup "user"; PermissionGroup "team-member" ]
+            }
         GroupItHas = PermissionGroup "team-member" |> Some
         GroupItHasNot = PermissionGroup "local"
         ExpectedUsername = "prijmenij"
@@ -81,9 +140,9 @@ let provideJWTSymmetricToken = [
     }
 ]
 
-let validateJWT currentInstance tokenKey tc token =
+let validateSessionJWT currentInstance tokenKey tc (Common.JWT jwt as token) =
     let isJWT =
-        match token |> SymmetricJWT.value with
+        match jwt with
         | JWT.IsJWT _ -> true
         | _ -> false
     Expect.isTrue isJWT tc.Description
@@ -106,19 +165,27 @@ let validateJWT currentInstance tokenKey tc token =
         | _ -> failtestf "DisplayName not found in JWT token."
     Expect.equal tc.ExpectedDisplayName displayName tc.Description
 
-    let isGranted = ValidToken |> SymmetricJWT.isGranted currentInstance [ tokenKey ] token
+    let isGranted = token |> SessionJWT.authorize currentInstance tokenKey ValidToken
     Expect.isOk isGranted tc.Description
 
     match tc.GroupItHas with
     | Some expectedGroup ->
-        let isGrantedByGroup = Group expectedGroup |> SymmetricJWT.isGranted currentInstance [ tokenKey ] token
+        let isGrantedByGroup = token |> SessionJWT.authorize currentInstance tokenKey (Group expectedGroup)
         Expect.isOk isGrantedByGroup tc.Description
     | _ -> ()
 
-    let isNotGrantedByGroup = Group tc.GroupItHasNot |> SymmetricJWT.isGranted currentInstance [ tokenKey ] token
+    let isNotGrantedByGroup = token |> SessionJWT.authorize currentInstance tokenKey (Group tc.GroupItHasNot)
     Expect.equal isNotGrantedByGroup (Error (ActionIsNotGranted "You are not authorized for this action.")) tc.Description
 
     isGranted |> okOrFail
+
+let assertValidJWT (validation: Validation) (tc: JWTClientIdTestCase) (token: JWT) =
+    let tokenData =
+        token.Common
+        |> JWT.authorize validation.Requirements validation.Key ValidToken
+        |> Result.map JWT.tokenData
+
+    Expect.equal tokenData validation.ExpectedResult tc.Description
 
 [<Tests>]
 let jwtTest =
@@ -129,29 +196,32 @@ let jwtTest =
                 testCase tc.Description <| fun _ ->
                     let client =
                         match tc.Headers with
-                        | JWT.HasJWTAuthorization (JWT.HasClientId (JWT.JWTClientId clientId)) -> Some clientId
+                        | JWT.HasJWTAuthorization (JWT.HasClientId (JWT.JWTClientId clientId) as jwt) ->
+                            match tc.ShouldBeValid with
+                            | Some validation -> jwt |> assertValidJWT validation tc
+                            | None -> ()
+
+                            Some clientId
                         | _ -> None
 
                     Expect.equal tc.Expected client tc.Description
             )
 
         yield!
-            provideJWTSymmetricToken
+            provideJWTSessionToken
             |> List.map (fun tc ->
                 testCase tc.Description <| fun _ ->
                     let currentInstance = instance "prc-jwt-test-test"
-                    let tokenKey = JWTKey.local "edbe2f5a-4d4a-4975-98b6-b794532e9732"
+                    let appKey = JWTKey.Symmetric.tryParse "edbe2f5a-4d4a-4975-98b6-b794532e9732" |> Result.ofOption "Invalid Key" |> okOrFail
 
-                    let token = SymmetricJWT.create currentInstance tokenKey tc.CustomData
+                    let token = tc.CustomData ||> SessionJWT.create currentInstance appKey |> okOrFail
 
-                    let isGranted = token |> validateJWT currentInstance tokenKey tc
+                    let isGranted = token |> validateSessionJWT currentInstance appKey tc
+                    let (Common.RenewedToken renewedToken) = isGranted |> SessionJWT.renew appKey |> okOrFail
 
-                    let renewedToken = isGranted |> SymmetricJWT.renew tokenKey
                     renewedToken
-                    |> validateJWT currentInstance tokenKey {
-                        tc with
-                            Description = tc.Description + " - renewed"
-                            ExpectedClientId = None // client_id is not passed to renew token ATM
+                    |> validateSessionJWT currentInstance appKey {
+                        tc with Description = tc.Description + " - renewed"
                     }
                     |> ignore
             )
