@@ -7,15 +7,21 @@
     - `RenewedToken` to `RenewedSessionToken`
 - Add *generic* `JWT` module
 - [**BC**] Move `Authorize` module etc. under the `Session` module and simplify the internals
-- [**BC**] Drop cases
+- [**BC**] Drop cases/types
     - `JWTKey.Local`
-    - `AuthorizedBy.OneOf`
+    - `AuthorizedBy`
 - Add `JWT.Common` member
 - [**BC**] Move symmetric key function under `JWTKey.Symmetric` module
-- Add cases
+- Add cases/types/modules
+    - `JWTPart`
     - `JWTKey.AsymmetricKey`
+    - `JWTKey.External`
     - `JwtValidationError.InvalidKey`
     - `AuthorizationError.InvalidKey`
+    - `Issuer`
+    - `Audience`
+    - `ExpiresIn`
+    - `GenericTokenData`
 - Add types for Asymmetric keys and more detailed JWT manipulations
 - Add `AmazonJWT` module
 

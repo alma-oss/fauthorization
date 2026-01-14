@@ -8,11 +8,14 @@ open System.Net
 open Alma.ServiceIdentification
 open Alma.Authorization
 open Alma.Authorization.JWT
+open Alma.Authorization.Common
 open Feather.ErrorHandling
 
 let okOrFail = function
     | Ok x -> x
     | Error e -> failtestf "%A" e
+
+let runOkOrFail = Async.RunSynchronously >> okOrFail
 
 let instance (instance: string) = Create.Instance(instance) |> okOrFail
 let publicRSAKey pemName =
@@ -52,19 +55,20 @@ let provideJWTClientId = [
             Key = publicRSAKey "test-public-key.pem"
             Requirements = []
             ExpectedResult = Ok {
-                Username = None
-                DisplayName = None
-                Groups = []
-                Scope = Some "domain-context-purpose-version/basic.read"
-                Issuer = Some "https://auth.svc"
-                Expiration = Some (DateTimeOffset.FromUnixTimeSeconds 1706619192L)
+                Audience = []
+                Client = None
                 ClientId = Some "76e0d84d-57de-4dc9-ace7-e6a657e173cd"
-                Name = None
+                DisplayName = None
+                Email = None
+                Expiration = Some (DateTimeOffset.FromUnixTimeSeconds 1706619192L)
                 FamilyName = None
                 GivenName = None
+                Groups = []
+                Issuer = Some (Issuer "https://auth.svc")
+                Name = None
                 Picture = None
-                Email = None
-                Client = None
+                Scope = Some "domain-context-purpose-version/basic.read"
+                Username = None
             }
         }
         Expected = Some "76e0d84d-57de-4dc9-ace7-e6a657e173cd"
@@ -97,10 +101,10 @@ let provideJWTClientId = [
 
 type JWTSessionTokenTestCase = {
     Description: string
-    CustomData: CustomItem list * SessionJWT.SessionData
+    SessionData: SessionData
     GroupItHas: PermissionGroup option
     GroupItHasNot: PermissionGroup
-    ExpectedUsername: string
+    ExpectedUsername: Username
     ExpectedDisplayName: string
     ExpectedClientId: string option
 }
@@ -108,33 +112,33 @@ type JWTSessionTokenTestCase = {
 let provideJWTSessionToken = [
     {
         Description = "should create symmetric admin token"
-        CustomData =
-            [
-                CustomItem.String ("client_id", "admin-client-id")
-            ],
+        SessionData =
             {
-                Username = "admin"
+                Username = Username "admin"
                 DisplayName = "administrátor"
                 Groups = [ PermissionGroup "local" ]
+                CustomClaims = [
+                    CustomItem.String ("client_id", "admin-client-id")
+                ]
             }
         GroupItHas = PermissionGroup "local" |> Some
         GroupItHasNot = PermissionGroup "admin"
-        ExpectedUsername = "admin"
+        ExpectedUsername = Username "admin"
         ExpectedDisplayName = "administrátor"
         ExpectedClientId = Some "admin-client-id"
     }
     {
         Description = "should create symmetric user token"
-        CustomData =
-            [],
+        SessionData =
             {
-                Username = "prijmenij"
+                Username = Username "prijmenij"
                 DisplayName = "Jméno Příjmení"
                 Groups = [ PermissionGroup "user"; PermissionGroup "team-member" ]
+                CustomClaims = []
             }
         GroupItHas = PermissionGroup "team-member" |> Some
         GroupItHasNot = PermissionGroup "local"
-        ExpectedUsername = "prijmenij"
+        ExpectedUsername = Username "prijmenij"
         ExpectedDisplayName = "Jméno Příjmení"
         ExpectedClientId = None
     }
@@ -151,19 +155,19 @@ let validateSessionJWT currentInstance tokenKey tc (Common.JWT jwt as token) =
         match JWT.Raw token with
         | JWT.HasClientId (JWT.JWTClientId clientId) -> Some clientId
         | _ -> None
-    Expect.equal tc.ExpectedClientId clientId tc.Description
+    Expect.equal clientId tc.ExpectedClientId tc.Description
 
     let username =
         match JWT.Raw token with
         | JWT.HasUsername username -> username
         | _ -> failtestf "Username not found in JWT token."
-    Expect.equal tc.ExpectedUsername username tc.Description
+    Expect.equal username tc.ExpectedUsername tc.Description
 
     let displayName =
         match JWT.Raw token with
         | JWT.HasDisplayName displayName -> displayName
         | _ -> failtestf "DisplayName not found in JWT token."
-    Expect.equal tc.ExpectedDisplayName displayName tc.Description
+    Expect.equal displayName tc.ExpectedDisplayName tc.Description
 
     let isGranted = token |> SessionJWT.authorize currentInstance tokenKey ValidToken
     Expect.isOk isGranted tc.Description
@@ -179,7 +183,7 @@ let validateSessionJWT currentInstance tokenKey tc (Common.JWT jwt as token) =
 
     isGranted |> okOrFail
 
-let assertValidJWT (validation: Validation) (tc: JWTClientIdTestCase) (token: JWT) =
+let assertValidJWT (validation: Validation) (tc: JWTClientIdTestCase) (token: Alma.Authorization.JWT) =
     let tokenData =
         token.Common
         |> JWT.authorize validation.Requirements validation.Key ValidToken
@@ -213,14 +217,19 @@ let jwtTest =
                 testCase tc.Description <| fun _ ->
                     let currentInstance = instance "prc-jwt-test-test"
                     let appKey = JWTKey.Symmetric.tryParse "edbe2f5a-4d4a-4975-98b6-b794532e9732" |> Result.ofOption "Invalid Key" |> okOrFail
+                    let jwtKey = Symmetric appKey
 
-                    let token = tc.CustomData ||> SessionJWT.create currentInstance appKey |> okOrFail
+                    let token =
+                        tc.SessionData
+                        |> SessionJWT.create currentInstance jwtKey
+                        |> Async.RunSynchronously
+                        |> okOrFail
 
-                    let isGranted = token |> validateSessionJWT currentInstance appKey tc
-                    let (Common.RenewedToken renewedToken) = isGranted |> SessionJWT.renew appKey |> okOrFail
+                    let grantedSessionData = token |> validateSessionJWT currentInstance jwtKey tc
+                    let (RenewedToken renewedToken) = grantedSessionData |> SessionJWT.renew jwtKey |> runOkOrFail
 
                     renewedToken
-                    |> validateSessionJWT currentInstance appKey {
+                    |> validateSessionJWT currentInstance jwtKey {
                         tc with Description = tc.Description + " - renewed"
                     }
                     |> ignore

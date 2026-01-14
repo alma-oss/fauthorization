@@ -7,4 +7,5 @@ gfoidl.Base64
 Portable.BouncyCastle
 Alma.Authorization.Common
 Feather.ErrorHandling
+Feather.Cryptography
 Alma.ServiceIdentification

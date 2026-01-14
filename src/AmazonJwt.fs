@@ -122,19 +122,20 @@ module AmazonJWT =
                         |> Seq.tryPick(fun claim -> if claim.Type = key then Some claim.Value else None)
 
                     return {
-                        Username = tryGetValue UserCustomData.Username
-                        DisplayName = tryGetValue UserCustomData.DisplayName
-                        Groups = []
-                        Scope = tryGetValue "scope"
-                        Issuer = tryGetValue "iss"
-                        Expiration = tryGetValue "exp" |> Option.bind tryParseDateTimeOffset
+                        Audience = tryGetValue "aud" |> Option.map Audience |> Option.toList
+                        Client = tryGetHeaderValue "client"
                         ClientId = tryGetValue "client_id"
-                        Name = tryGetValue "name"
+                        DisplayName = tryGetValue UserCustomData.DisplayName
+                        Email = tryGetValue "email"
+                        Expiration = tryGetValue "exp" |> Option.bind tryParseDateTimeOffset
                         FamilyName = tryGetValue "family_name"
                         GivenName = tryGetValue "given_name"
+                        Groups = []
+                        Issuer = tryGetValue "iss" |> Option.map Issuer
+                        Name = tryGetValue "name"
                         Picture = tryGetValue "picture"
-                        Email = tryGetValue "email"
-                        Client = tryGetHeaderValue "client"
+                        Scope = tryGetValue "scope"
+                        Username = tryGetValue UserCustomData.Username
                     }
 
             with e -> return! Error (JWTError e)
@@ -166,16 +167,22 @@ module AmazonJWT =
                 |> Option.defaultValue userName
 
             let! token =
-                SessionJWT.create currentInstance tokenKey (List.choose id [
-                    claims.ClientId
-                    |> Option.orElse claims.Client
-                    |> Option.map (fun clientId -> CustomItem.String ("client_id", clientId))
-                ]) {
-                    Username = userName
+                {
+                    Username = Username userName
                     DisplayName = displayName
                     Groups = [ PermissionGroup AmazonOidcDataHeader ]
+                    CustomClaims = [
+                        match claims.ClientId with
+                        | Some clientId -> CustomItem.String ("client_id", clientId)
+                        | None -> ()
+
+                        match claims.Client with
+                        | Some client -> CustomItem.String ("client", client)
+                        | None -> ()
+                    ]
                 }
-                |> Result.mapError JWTCreationError
+                |> SessionJWT.create currentInstance tokenKey
+                |> AsyncResult.mapError JWTCreationError
 
             return {
                 TokenData = claims

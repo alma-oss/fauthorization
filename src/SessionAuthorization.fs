@@ -5,20 +5,14 @@ module Session =
     open Alma.Authorization.Common
     open Alma.Authorization.JWT
 
-    [<RequireQualifiedAccess>]
-    type AuthorizedBy =
-        | AppKey of SymmetricJWTKey
-
-    [<RequireQualifiedAccess>]
-    module private AuthorizedBy =
-        let symmetricKey = function
-            | AuthorizedBy.AppKey key -> key
-
     type Authorization = {
         CurrentApplication: Instance
-        AuthorizedFor: Instance
-        KeyForRenewToken: SymmetricJWTKey
-        AuthorizedBy: AuthorizedBy
+
+        /// Key used to renew the token (write)
+        KeyForRenewToken: JWTKey
+
+        /// Key used to authorize the action (read)
+        AuthorizedBy: JWTKey
     }
 
     [<RequireQualifiedAccess>]
@@ -27,36 +21,36 @@ module Session =
 
         type GrantedAccess = private {
             RenewedToken: RenewedToken
-            GrantedSessionData: SessionJWT.GrantedSessionData
+            SessionData: SessionData
         }
 
-        type private AuthorizeToken = SecurityToken -> Result<GrantedAccess, AuthorizationError>
+        type private AuthorizeToken = SecurityToken -> AsyncResult<GrantedAccess, AuthorizationError>
 
         [<RequireQualifiedAccess>]
         module private SecureRequest =
-            let accessData (authorizeToken: AuthorizeToken) { Token = token; RequestData = data } = result {
+            let accessData (authorizeToken: AuthorizeToken) { Token = token; RequestData = data } = asyncResult {
                 let! grantedAccess = authorizeToken token
 
                 return grantedAccess, data
             }
 
-        let private authorize authorization permission: AuthorizeToken = fun (SecurityToken token) -> result {
+        let private authorize authorization permission: AuthorizeToken = fun (SecurityToken token) -> asyncResult {
             let! grantedSessionData =
                 token
-                |> SessionJWT.authorize authorization.CurrentApplication (authorization.AuthorizedBy |> AuthorizedBy.symmetricKey) permission
+                |> SessionJWT.authorize authorization.CurrentApplication authorization.AuthorizedBy permission
 
             let! renewedToken =
                 grantedSessionData
                 |> SessionJWT.renew authorization.KeyForRenewToken
-                |> Result.mapError InvalidKey
+                |> AsyncResult.mapError InvalidKey
 
             return {
                 RenewedToken = renewedToken
-                GrantedSessionData = grantedSessionData
+                SessionData = SessionJWT.sessionData grantedSessionData
             }
         }
 
-        type Authorize<'RequestData> = Authorization -> SecureRequest<'RequestData> -> Result<GrantedAccess * 'RequestData, AuthorizationError>
+        type Authorize<'RequestData> = Authorization -> SecureRequest<'RequestData> -> AsyncResult<GrantedAccess * 'RequestData, AuthorizationError>
 
         let withLogin: Authorize<'RequestData> =
             fun authorization ->
@@ -136,14 +130,13 @@ module Session =
                 let! grantedAccess, requestData =
                     request
                     |> authorize authorization
-                    |> AsyncResult.ofResult <@> (AuthorizationError.format formatError logAuthorizationError)
+                    <@> AuthorizationError.format formatError logAuthorizationError
 
                 let action =
                     match action with
                     | Request request -> request
                     | RequestWithUsername request ->
-                        grantedAccess.GrantedSessionData
-                        |> SessionJWT.GrantedSessionData.userName
+                        grantedAccess.SessionData.Username
                         |> request
 
                 let! response =

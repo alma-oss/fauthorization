@@ -30,12 +30,22 @@ type IMyApi = {
     Login: Username * Password -> AsyncResult<User, string>
 
     // Secured actions
-    LoadData: SecureRequest<unit> -> SecuredAsyncResult<Data list, string>
+    LoadGenericData: SecureRequest<unit> -> SecuredAsyncResult<Data list, string>
+    LoadUserData: SecureRequest<unit> -> SecuredAsyncResult<Data list, string>
 }
 ```
 
 Then implement your Api.
 ```fs
+// Init context
+let currentApplication = {
+    Authorization = {
+        CurrentApplication = currentApplication.Gui.Instance    // CurrentApplication must be a Issuer and Audience for the validated token (use SessionJWT for this)
+        AuthorizedBy = currentApplication.TokenKey              // AuthorizedBy is JWTKey used to authorize the token (read/validate current token)
+        KeyForRenewToken = currentApplication.TokenKey          // This key will be used for renewed token (create/write new token)
+    }
+}
+
 // Server
 
 type MyErrorMessageType = MyErrorMessageType of string
@@ -44,18 +54,24 @@ module Api =
     open Shared
     open Feather.ErrorHandling
     open Alma.Authorization
-    open Alma.Authorization
+    open Alma.Authorization.Session
 
+    /// Helper operator, which allows the action authorization
     let inline private (>?>) authorize action =
         Authorize.authorizeAction
-            (CurrentApplication currentApplication.Gui.SoftwareComponent)   // CurrentApplication must be a Issuer and Audience for the validated token
-            (AuthorizedFor currentApplication.SoftwareComponent)            // AuthorizedFor is a software component which user want to do something needing authorization
-            (KeyForRenewToken currentApplication.TokenKey)                  // This key will be used for renewed token, it must be one of the KeysForToken in order to access the renewed token again
-            currentApplication.KeysForToken                                 // A list of keys, which will be used to try access a token (at least one of the keys must pass in order to grant a permission)
+            current.Authorization
             MyErrorMessageType
             logAuthorizationError
             authorize
             action
+
+    /// Helper operator, which allows you to access the Username from a sessionJWT
+    let (>?>>) authorize action =
+        Authorize.authorizeAction currentApplication.Authorization
+            MyErrorMessageType
+            logAuthorizationError
+            authorize
+            (Authorize.Action.RequestWithUsername action)
 
     let api = {
         //
@@ -80,14 +96,52 @@ module Api =
         // Secured actions
         //
 
-                // [..Authorization..]     [...         ... Api Endpoint function ...                ...]
-        LoadData = Authorize.withLogin >?> fun ( (* action parameters would go here *) ) -> asyncResult {
+        //                [..Authorization..]     [...         ... Api Endpoint function ...                ...]
+        LoadGenericData = Authorize.withLogin >?> fun ( (* action parameters would go here *) ) -> asyncResult {
             let! data =
                 Data.load () <@> (DataLoadError.format >> ErrorMessage)
 
             return data |> List.map Dto.Serialize.data
         }
+
+        //             [..Authorization..]      [...         ... Api Endpoint function ...                ...]
+        LoadUserData = Authorize.withLogin >?>> fun ((username: Username) (* action parameters would go here *) ) -> asyncResult {
+            let! data =
+                Data.loadForUser username <@> (DataLoadError.format >> ErrorMessage)
+
+            return data |> List.map Dto.Serialize.data
+        }
     }
+```
+
+### External Signing (e.g., Vault Transit)
+
+For scenarios where you want to sign JWTs using an external service like HashiCorp Vault's Transit engine:
+
+```fs
+open Feather.ErrorHandling
+open Alma.Authorization.JWT
+
+// Create JWTKey with external signing
+let jwtKey = JWTKey.External {
+    Algorithm = "RS256"  // The JWT algorithm (RS256, ES256, etc.)
+    Sign = fun unsignedJwt -> asyncResult {
+        let! signature =
+            unsignedJwt
+            |> JWTPart.unsignedJWTValue
+            |> Vault.signJWT    // call external API
+
+        return JWTPart.Signature signature
+    }
+}
+
+// Use it to create tokens
+let! jwt =
+    JWT.create
+        (Issuer "my-app")
+        (Audience "my-api")
+        jwtKey
+        (GenericTokenData.TokenData tokenData)
 ```
 
 ---
