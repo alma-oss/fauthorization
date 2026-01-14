@@ -71,6 +71,33 @@ module JWT =
         | Bool of bool
 
     [<RequireQualifiedAccess>]
+    module JWTPart =
+        open JsonWebToken
+        open Feather.Cryptography.Encode
+
+        type Header = Header of string
+        type Payload = Payload of string
+        type Signature = Signature of string
+
+        type UnsignedJWT = UnsignedJWT of Header * Payload
+
+        let internal unsignedPartFromDescriptor (descriptor: JwsDescriptor) =
+            let base64 = Base64.encode >> Base64.toBase64Url
+            let header = descriptor.Header.Serialize() |> base64 |> Header
+            let payload = descriptor.Payload.Serialize() |> base64 |> Payload
+            UnsignedJWT(header, payload)
+
+        let unsignedJWTValue (UnsignedJWT (Header header, Payload payload)) =
+            $"{header}.{payload}"
+
+        let compose (header: string) (payload: string) (signature: string) =
+            JWT $"{header}.{payload}.{signature}"
+
+        let sign (unsignedJwt: UnsignedJWT) (Signature signature) =
+            let unsignedValue = unsignedJWTValue unsignedJwt
+            JWT $"{unsignedValue}.{signature}"
+
+    [<RequireQualifiedAccess>]
     module JWTValue =
         let tryParsePayload (payload: JwtPayload) =
             payload
@@ -107,11 +134,12 @@ module JWT =
         | _ -> None
 
     let (|HasClientId|_|) = function
-        | HasPayloadValue "client_id" (JWTValue.String clientId) -> Some (JWTClientId clientId)
+        | HasPayloadValue "client_id" (JWTValue.String clientId)
+        | HasPayloadValue "client" (JWTValue.String clientId) -> Some (JWTClientId clientId)
         | _ -> None
 
     let (|HasUsername|_|) = function
-        | HasPayloadValue UserCustomData.Username (JWTValue.String username) -> Some username
+        | HasPayloadValue UserCustomData.Username (JWTValue.String username) -> Some (Username username)
         | _ -> None
 
     let (|HasDisplayName|_|) = function
@@ -146,9 +174,15 @@ module JWT =
             | Public of PublicPem
             | Private of PrivatePem
 
+        type ExternalSigning = {
+            Algorithm: string
+            Sign: JWTPart.UnsignedJWT -> AsyncResult<JWTPart.Signature, string>
+        }
+
         type JWTKey =
             | Symmetric of SymmetricJWTKey
             | Asymmetric of AsymmetricJWTKey
+            | External of ExternalSigning
 
         [<RequireQualifiedAccess>]
         module JWTKey =
@@ -162,6 +196,12 @@ module JWT =
                     match alg with
                     | Rsa -> SignatureAlgorithm.RsaSha256
                     | Ecdsa -> SignatureAlgorithm.EcdsaSha256
+                | External { Algorithm = alg } ->
+                    match alg.ToLower() with
+                    | "hs256" -> SignatureAlgorithm.HmacSha256
+                    | "rs256" -> SignatureAlgorithm.RsaSha256
+                    | "es256" -> SignatureAlgorithm.EcdsaSha256
+                    | _ -> failwithf "Unsupported external signing algorithm: %s" alg
 
             [<RequireQualifiedAccess>]
             module Symmetric =
@@ -213,13 +253,17 @@ module JWT =
             let internal readKey = function
                 | Symmetric symmetricKey -> symmetricKey |> Symmetric.toSymmetricJwk |> Ok
                 | Asymmetric asymmetricKey -> asymmetricKey |> Asymmetric.toPublicJwk |> Result.ofOption "Wrong key type, expected public key"
+                | External _ -> Error "External keys cannot be used for reading/validation"
 
             let internal writeKey = function
                 | Symmetric symmetricKey -> symmetricKey |> Symmetric.toSymmetricJwk |> Ok
                 | Asymmetric asymmetricKey -> asymmetricKey |> Asymmetric.toPrivateJwk |> Result.ofOption "Wrong key type, expected private key"
+                | External _ -> Error "External keys handled separately in signing flow"
 
     type Issuer = Issuer of string
     type Audience = Audience of string
+    type ExpiresIn =
+        | ExpiresInMinutes of int
 
     type Requirement =
         | NotExpired
@@ -228,26 +272,35 @@ module JWT =
 
     type PermissionGroup = PermissionGroup of string
 
-    type TokenData = {
-        Username: string option
-        DisplayName: string option
+    type SessionData = {
+        Username: Username
+        DisplayName: string
         Groups: PermissionGroup list
-        Scope: string option
-        Issuer: string option
-        Expiration: DateTimeOffset option
+        CustomClaims: CustomItem list
+    }
+
+    type TokenData = {
+        Audience: Audience list
+        Client: string option
         ClientId: string option
-        Name: string option
+        DisplayName: string option
+        Email: string option
+        Expiration: DateTimeOffset option
         FamilyName: string option
         GivenName: string option
+        Groups: PermissionGroup list
+        Issuer: Issuer option
+        Name: string option
         Picture: string option
-        Email: string option
-        Client: string option
+        Scope: string option
+        Username: string option
     }
 
     [<RequireQualifiedAccess>]
     type GenericTokenData =
         | TokenData of TokenData
         | CustomItems of CustomItem list
+        | SessionData of SessionData
 
     [<RequireQualifiedAccess>]
     module PermissionGroup =
@@ -259,7 +312,22 @@ module JWT =
         | TokenData of (TokenData -> bool)
 
     [<RequireQualifiedAccess>]
-    module private TokenData =
+    module internal SessionData =
+        let toCustomItems { Username = Username username; DisplayName = displayName; Groups = groups; CustomClaims = custom } =
+            let groupValues = groups |> List.map PermissionGroup.value
+
+            [
+                CustomItem.String (UserCustomData.Username, username)
+                CustomItem.String (UserCustomData.DisplayName, displayName)
+                match groupValues with
+                | [] -> ()
+                | _ -> CustomItem.Strings (UserCustomData.Groups, groupValues)
+
+                yield! custom
+            ]
+
+    [<RequireQualifiedAccess>]
+    module internal TokenData =
         let toCustomItems data =
             List.choose id [
                 data.Username |> Option.map (fun u -> CustomItem.String (UserCustomData.Username, u))
@@ -287,6 +355,17 @@ module JWT =
             match jwtResult.Token.Payload.TryGetValue(key) with
             | true, value -> Some (value.Value.ToString())
             | _ -> None
+
+        let getPayloadArrayValue (jwtResult: TokenValidationResult) (key: string) =
+            match jwtResult.Token.Payload.TryGetValue(key) with
+            | true, value ->
+                match value.Value with
+                | :? JwtArray as array ->
+                    array
+                    |> Seq.map (fun i -> i.Value.ToString())
+                    |> Seq.toList
+                | _ -> []
+            | _ -> []
 
         let getHeaderValue (jwtResult: TokenValidationResult) (key: string) =
             let keyBytes = Text.Encoding.UTF8.GetBytes(key)
@@ -330,7 +409,7 @@ module JWT =
         type GrantedTokenData = internal GrantedTokenData of GrantedToken * TokenData
 
         type internal Authorize = JWTKey -> Permission -> Common.JWT -> Result<GrantedTokenData, AuthorizationError>
-        type internal Renew = JWTKey -> GrantedTokenData -> Result<RenewedToken, string>
+        type internal Renew = ExpiresIn -> JWTKey -> GrantedTokenData -> AsyncResult<RenewedToken, string>
 
         let tokenData (GrantedTokenData (_, tokenData)) = tokenData
 
@@ -357,19 +436,20 @@ module JWT =
                 if jwtResult.Succedeed then
                     return
                         GrantedTokenData (GrantedToken jwtResult.Token, {
-                            Username = getPayloadValue jwtResult UserCustomData.Username
-                            DisplayName = getPayloadValue jwtResult UserCustomData.DisplayName
-                            Groups = getGroups jwtResult UserCustomData.Groups
-                            Scope = getPayloadValue jwtResult "scope"
-                            Issuer = getPayloadValue jwtResult "iss"
-                            Expiration = getDateTimeOffset jwtResult "exp"
+                            Audience = getPayloadArrayValue jwtResult "aud" |> List.map Audience
+                            Client = getHeaderValue jwtResult "client"
                             ClientId = getPayloadValue jwtResult "client_id"
-                            Name = getPayloadValue jwtResult "name"
+                            DisplayName = getPayloadValue jwtResult UserCustomData.DisplayName
+                            Email = getPayloadValue jwtResult "email"
+                            Expiration = getDateTimeOffset jwtResult "exp"
                             FamilyName = getPayloadValue jwtResult "family_name"
                             GivenName = getPayloadValue jwtResult "given_name"
+                            Groups = getGroups jwtResult UserCustomData.Groups
+                            Issuer = getPayloadValue jwtResult "iss" |> Option.map Issuer
+                            Name = getPayloadValue jwtResult "name"
                             Picture = getPayloadValue jwtResult "picture"
-                            Email = getPayloadValue jwtResult "email"
-                            Client = getHeaderValue jwtResult "client"
+                            Scope = getPayloadValue jwtResult "scope"
+                            Username = getPayloadValue jwtResult UserCustomData.Username
                         })
                 else
                     return!
@@ -420,158 +500,149 @@ module JWT =
                 descriptor.AddClaim(key, array)
                 descriptor |> addCustomData rest
 
-        let create (Issuer issuer) (Audience audience) (jwtKey: JWTKey) customData = result {
-            use! key = jwtKey |> JWTKey.writeKey
+        let private createDescriptor (Issuer issuer) (Audience audience) (ExpiresInMinutes expiresInMinutes) jwtKey customData key =
             let now = DateTime.UtcNow
-
-            let descriptor = JwsDescriptor(
-                SigningKey = key,
-                JwtId = Guid.NewGuid().ToString(),
-                IssuedAt = (now |> Nullable),
-                NotBefore = (now |> Nullable),
-                ExpirationTime = (now.AddMinutes(30.0) |> Nullable),
-                Issuer = issuer,
-                Audience = audience
-            )
 
             let customData =
                 match customData with
                 | GenericTokenData.TokenData data -> TokenData.toCustomItems data
                 | GenericTokenData.CustomItems items -> items
+                | GenericTokenData.SessionData data -> SessionData.toCustomItems data
 
-            return
-                descriptor
-                |> addCustomData customData
-                |> JwtWriter().WriteTokenString
-                |> JWT
+            let descriptor = JwsDescriptor(
+                Type = "JWT",
+                Algorithm = JWTKey.signatureAlgorithm jwtKey,
+                JwtId = Guid.NewGuid().ToString(),
+                IssuedAt = (now |> Nullable),
+                NotBefore = (now |> Nullable),
+                ExpirationTime = (now.AddMinutes(expiresInMinutes) |> Nullable),
+                Issuer = issuer,
+                Audience = audience
+            )
+
+            match key with
+            | Some key -> descriptor.SigningKey <- key
+            | None -> ()
+
+            descriptor |> addCustomData customData
+
+
+        let create iss aud exp (jwtKey: JWTKey) customData = asyncResult {
+            let createDescriptor = createDescriptor iss aud exp jwtKey customData
+
+            match jwtKey with
+            | External sign ->
+                let unsignedJwt =
+                    createDescriptor None
+                    |> JWTPart.unsignedPartFromDescriptor
+
+                let! signature = sign.Sign unsignedJwt
+
+                return JWTPart.sign unsignedJwt signature
+            | _ ->
+                use! key = jwtKey |> JWTKey.writeKey
+                let descriptor =  createDescriptor (Some key)
+
+                return
+                    descriptor
+                    |> JwtWriter().WriteTokenString
+                    |> JWT
         }
 
-        let renew: Renew = fun jwtKey (GrantedTokenData (GrantedToken token, tokenData)) -> result {
-            use! key = jwtKey |> JWTKey.writeKey
-
-            return
-                JwsDescriptor(
-                    SigningKey = key,
+        let renew: Renew = fun (ExpiresInMinutes expiresIn) jwtKey (GrantedTokenData (GrantedToken token, tokenData)) -> asyncResult {
+            let createDescriptor key =
+                let descriptor = JwsDescriptor(
+                    Type = "JWT",
+                    Algorithm = JWTKey.signatureAlgorithm jwtKey,
                     JwtId = Guid.NewGuid().ToString(),
                     IssuedAt = token.IssuedAt,
                     NotBefore = token.NotBefore,
-                    ExpirationTime = (DateTime.UtcNow.AddMinutes(30.0) |> Nullable),
+                    ExpirationTime = (DateTime.UtcNow.AddMinutes(expiresIn) |> Nullable),
                     Issuer = token.Issuer,
                     Audience = (token.Audiences |> Seq.head)
                 )
+
+                match key with
+                | Some key -> descriptor.SigningKey <- key
+                | None -> ()
+
+                descriptor
                 |> addCustomData (tokenData |> TokenData.toCustomItems)
-                |> JwtWriter().WriteTokenString
-                |> JWT
-                |> RenewedToken
+
+            match jwtKey with
+            | External sign ->
+                let unsignedJwt =
+                    createDescriptor None
+                    |> JWTPart.unsignedPartFromDescriptor
+
+                let! signature = sign.Sign unsignedJwt
+
+                return JWTPart.sign unsignedJwt signature |> RenewedToken
+            | _ ->
+                use! key = jwtKey |> JWTKey.writeKey
+                let descriptor =  createDescriptor (Some key)
+
+                return
+                    descriptor
+                    |> JwtWriter().WriteTokenString
+                    |> JWT
+                    |> RenewedToken
         }
 
     [<RequireQualifiedAccess>]
     module SessionJWT =
-        type SessionData = {
-            Username: string
-            DisplayName: string
-            Groups: PermissionGroup list
-        }
+        type GrantedSessionData = private GrantedSessionData of SessionData * JWT.GrantedTokenData
 
-        type GrantedSessionData = private GrantedSessionData of JWT.GrantedTokenData * SessionData
+        let sessionData (GrantedSessionData (sessionData, _)) = sessionData
 
-        type private Authorize = SymmetricJWTKey -> Permission -> Common.JWT -> Result<GrantedSessionData, AuthorizationError>
-        type private Renew = SymmetricJWTKey -> GrantedSessionData -> Result<RenewedToken, string>
+        let create currentInstance jwtKey sessionData =
+            let currentApplication = currentInstance |> Instance.concat "-"
 
-        [<RequireQualifiedAccess>]
-        module private SessionData =
-            let toCustomItems sessionData =
-                [
-                    CustomItem.String (UserCustomData.Username, sessionData.Username)
-                    CustomItem.String (UserCustomData.DisplayName, sessionData.DisplayName)
-                    CustomItem.Strings (UserCustomData.Groups, sessionData.Groups |> List.map PermissionGroup.value)
-                ]
+            GenericTokenData.SessionData sessionData
+            |> JWT.create
+                (Issuer currentApplication)
+                (Audience currentApplication)
+                (ExpiresInMinutes 30)
+                jwtKey
 
-            let fromTokenData (JWT.GrantedTokenData (_, tokenData)) = result {
-                let! username = tokenData.Username |> Result.ofOption MissingUsername
-                let! displayName = tokenData.DisplayName |> Result.ofOption MissingDisplayName
+        let private validateSessionData grantedData = result {
+            let tokenData = grantedData |> JWT.tokenData
+            let! username = tokenData.Username |> Result.ofOption MissingUsername
+            let! displayName = tokenData.DisplayName |> Result.ofOption MissingDisplayName
 
-                let! groups =
-                    match tokenData.Groups with
-                    | [] -> Error MissingGroups
-                    | groups -> Ok groups
+            let! groups =
+                match tokenData.Groups with
+                | [] -> Error MissingGroups
+                | groups -> Ok groups
 
-                return {
-                    Username = username
-                    DisplayName = displayName
-                    Groups = groups
-                }
+            return {
+                Username = Username username
+                DisplayName = displayName
+                Groups = groups
+                CustomClaims = tokenData |> TokenData.toCustomItems // todo - filter out data already in session data
             }
-
-        [<RequireQualifiedAccess>]
-        module private RawGrantedSessionData =
-            let sessionData (GrantedSessionData (_, sessionData)) = sessionData
-
-        [<RequireQualifiedAccess>]
-        module GrantedSessionData =
-            let userName = RawGrantedSessionData.sessionData >> _.Username >> Username
-            let displayName = RawGrantedSessionData.sessionData >> _.DisplayName
-
-        let private readSessionData currentApplication key token = result {
-            let! grantedData =
-                token
-                |> JWT.readTokenData key [
-                    NotExpired
-                    IssuedBy currentApplication
-                    IntendedFor currentApplication
-                ]
-
-            let! sessionData = SessionData.fromTokenData grantedData
-
-            return GrantedSessionData (grantedData, sessionData)
         }
 
-        let internal username currentApplication key token =
-            token
-            |> readSessionData currentApplication key
-            |> Result.map (RawGrantedSessionData.sessionData >> _.Username >> Username)
+        let authorize currentInstance jwtKey permission jwt = result {
+            let! grantedTokenData =
+                jwt
+                |> JWT.authorize
+                    [
+                        NotExpired
+                        IssuedBy currentInstance
+                        IntendedFor currentInstance
+                    ]
+                    jwtKey
+                    permission
 
-        let authorize currentApplication: Authorize = fun appKey requiredPermission token -> result {
-            let key = Symmetric appKey
-            let! GrantedSessionData (grantedData, sessionData) = token |> readSessionData currentApplication key <@> JwtValidationError
-            let! validData = requiredPermission |> JWT.validatePermissions grantedData
+            let! sessionData =
+                grantedTokenData
+                |> validateSessionData
+                |> Result.mapError JwtValidationError
 
-            return GrantedSessionData (validData, sessionData)
+            return GrantedSessionData (sessionData, grantedTokenData)
         }
 
-        let create currentApp appKey customData sessionData =
-            let currentInstance = currentApp |> Instance.concat "-"
-
-            customData @ (sessionData |> SessionData.toCustomItems)
-            |> GenericTokenData.CustomItems
-            |> JWT.create (Issuer currentInstance) (Audience currentInstance) (Symmetric appKey)
-
-        let renew: Renew = fun appKey (GrantedSessionData (JWT.GrantedTokenData (JWT.GrantedToken token, tokenData), sessionData)) -> result {
-            use! key = Symmetric appKey |> JWTKey.writeKey
-
-            let customData = (tokenData |> TokenData.toCustomItems) @ [
-                CustomItem.String (UserCustomData.Username, sessionData.Username)
-                CustomItem.String (UserCustomData.DisplayName, sessionData.DisplayName)
-                CustomItem.Strings (UserCustomData.Groups, sessionData.Groups |> List.map PermissionGroup.value)
-            ]
-
-            return
-                JwsDescriptor(
-                    SigningKey = key,
-                    JwtId = Guid.NewGuid().ToString(),
-                    IssuedAt = token.IssuedAt,
-                    NotBefore = token.NotBefore,
-                    ExpirationTime = (DateTime.UtcNow.AddMinutes(30.0) |> Nullable),
-                    Issuer = token.Issuer,
-                    Audience = (token.Audiences |> Seq.head)
-                )
-                |> JWT.addCustomData customData
-                |> JwtWriter().WriteTokenString
-                |> JWT
-                |> RenewedToken
-        }
-
-    [<RequireQualifiedAccess>]
-    module internal RenewedSessionToken =
-        let username currentApplication appKey (RenewedToken token) =
-            token |> SessionJWT.username currentApplication (Symmetric appKey)
+        let renew jwtKey (GrantedSessionData (_, grantedTokenData)) =
+            grantedTokenData
+            |> JWT.renew (ExpiresInMinutes 30) jwtKey

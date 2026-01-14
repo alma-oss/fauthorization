@@ -28,21 +28,24 @@ type AuthorizationTestCase<'Data, 'Success, 'Error> = {
 }
 
 let provideAuthorizations: AuthorizationTestCase<string, string, string> list = [
-    let currentApp = instance "prc-app-common-stable"
+    let currentInstance = instance "prc-app-common-stable"
     let key = JWTKey.Symmetric.tryParse "482caea0-4162-4fcd-9a29-94fd77477f7d" |> Result.ofOption "Invalid key" |> okOrFail
+    let jwtKey = Symmetric key
+
     let authorization = {
-        CurrentApplication = currentApp
-        AuthorizedFor = currentApp
-        KeyForRenewToken = key
-        AuthorizedBy = AuthorizedBy.AppKey key
+        CurrentApplication = currentInstance
+        KeyForRenewToken = jwtKey
+        AuthorizedBy = jwtKey
     }
 
     let jwt =
-        SessionJWT.create currentApp key [] {
-            Username = "user"
+        SessionJWT.create currentInstance jwtKey {
+            Username = Username "user"
             DisplayName = "Uživatel"
             Groups = [ PermissionGroup "user" ]
+            CustomClaims = []
         }
+        |> Async.RunSynchronously
         |> okOrFail
 
     let action = function
