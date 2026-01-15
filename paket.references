@@ -5,7 +5,8 @@ System.IdentityModel.Tokens.Jwt
 JsonWebToken
 gfoidl.Base64
 Portable.BouncyCastle
+Casbin.NET
 Alma.Authorization.Common
-Feather.ErrorHandling
-Feather.Cryptography
 Alma.ServiceIdentification
+Feather.Cryptography
+Feather.ErrorHandling

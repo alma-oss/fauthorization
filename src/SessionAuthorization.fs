@@ -60,7 +60,8 @@ module Session =
             fun authorization ->
                 SecureRequest.accessData (authorize authorization (Group group))
 
-        (* let private grantScope instance appKey keysForToken token scope =
+        (*
+        let private grantScope instance appKey keysForToken token scope =
             let permission =
                 scope
                 |> Ldap.Authorization.permissionGroup instance

@@ -6,9 +6,7 @@ open System.IO
 open System.Net
 open Alma.ServiceIdentification
 open Feather.ErrorHandling
-open Alma.Authorization.Session
-open Alma.Authorization.Common
-open Alma.Authorization.JWT
+open Alma.Authorization
 
 let okOrFail = function
     | Ok x -> x
@@ -16,142 +14,136 @@ let okOrFail = function
 
 let instance (instance: string) = Create.Instance(instance) |> okOrFail
 
-type AuthorizationTestCase<'Data, 'Success, 'Error> = {
+let (/) a b = Path.Combine(a, b)
+let model file = ModelFilePath (__SOURCE_DIRECTORY__ / "Fixtures" / file)
+let policy file = PolicyFilePath (__SOURCE_DIRECTORY__ / "Fixtures" / file)
+let scope scope = Scope.parse scope |> okOrFail
+
+type AuthorizationTestCase = {
     Description: string
-    Authorization: Authorization
-    Authorize: Authorize.Authorize<'Data>
-    Action: Authorize.Action<'Data, 'Success, 'Error>
-    /// This is normally prepared by the client - see Alma.Fable.Authorization Secure.secureApi function
-    Request: SecureRequest<'Data>
-    ValidateToken: RenewedToken -> unit
-    Expected: Result<'Success, SecuredRequestError<'Error>>
+    Subject: Subject
+    Scope: Scope
+    Model: Model
+    Policy: Policy
+    Expected: Result<unit, AuthorizationError>
 }
 
-let provideAuthorizations: AuthorizationTestCase<string, string, string> list = [
-    let currentInstance = instance "prc-app-common-stable"
-    let key = JWTKey.Symmetric.tryParse "482caea0-4162-4fcd-9a29-94fd77477f7d" |> Result.ofOption "Invalid key" |> okOrFail
-    let jwtKey = Symmetric key
-
-    let authorization = {
-        CurrentApplication = currentInstance
-        KeyForRenewToken = jwtKey
-        AuthorizedBy = jwtKey
+let provideAuthorizations: AuthorizationTestCase list = [
+    // Data Auditor (read-only)
+    {
+        Description = "RBAC - data-auditor should authorize read"
+        Subject = Subject "user@data-auditor.test"
+        Scope = scope "data:read"
+        Model = RBAC
+        Policy = policy "adminConsole.csv"
+        Expected = Ok ()
+    }
+    {
+        Description = "RBAC - data-auditor should not authorize write"
+        Subject = Subject "user@data-auditor.test"
+        Scope = scope "data:write"
+        Model = RBAC
+        Policy = policy "adminConsole.csv"
+        Expected = Error AuthorizationError.AuthorizationDenied
+    }
+    {
+        Description = "RBAC - data-auditor should not authorize admin"
+        Subject = Subject "user@data-auditor.test"
+        Scope = scope "data:admin"
+        Model = RBAC
+        Policy = policy "adminConsole.csv"
+        Expected = Error AuthorizationError.AuthorizationDenied
     }
 
-    let jwt =
-        SessionJWT.create currentInstance jwtKey {
-            Username = Username "user"
-            DisplayName = "Uživatel"
-            Groups = [ PermissionGroup "user" ]
-            CustomClaims = []
-        }
-        |> Async.RunSynchronously
-        |> okOrFail
+    // Customer Care (read/write)
+    {
+        Description = "RBAC - customer-care should authorize read"
+        Subject = Subject "user@custom-care.test"
+        Scope = scope "data:read"
+        Model = RBAC
+        Policy = policy "adminConsole.csv"
+        Expected = Ok ()
+    }
+    {
+        Description = "RBAC - customer-care should authorize write"
+        Subject = Subject "user@custom-care.test"
+        Scope = scope "data:write"
+        Model = RBAC
+        Policy = policy "adminConsole.csv"
+        Expected = Ok ()
+    }
+    {
+        Description = "RBAC - customer-care should not authorize admin"
+        Subject = Subject "user@custom-care.test"
+        Scope = scope "data:admin"
+        Model = RBAC
+        Policy = policy "adminConsole.csv"
+        Expected = Error AuthorizationError.AuthorizationDenied
+    }
 
-    let action = function
-        | "data" -> AsyncResult.ofSuccess "response"
-        | _ -> AsyncResult.ofSuccess "wrong-response"
+    // Admin (full access)
+    {
+        Description = "RBAC - admin should authorize read"
+        Subject = Subject "admin@domain.test"
+        Scope = scope "data:read"
+        Model = RBAC
+        Policy = policy "adminConsole.csv"
+        Expected = Ok ()
+    }
+    {
+        Description = "RBAC - admin should authorize write"
+        Subject = Subject "admin@domain.test"
+        Scope = scope "data:write"
+        Model = RBAC
+        Policy = policy "adminConsole.csv"
+        Expected = Ok ()
+    }
+    {
+        Description = "RBAC - admin should authorize admin"
+        Subject = Subject "admin@domain.test"
+        Scope = scope "data:admin"
+        Model = RBAC
+        Policy = policy "adminConsole.csv"
+        Expected = Ok ()
+    }
 
+    // Admin (NOT a full access)
     {
-        Description = "should authorize action with login"
-        Authorization = authorization
-        Authorize = Authorize.withLogin
-        Action = Authorize.Action.Request action
-        Request = {
-            Token = SecurityToken jwt
-            RequestData = "data"
-        }
-        ValidateToken = ignore  // todo - maybe later
-        Expected = Ok "response"
+        Description = "RBAC-model - admin should NOT authorize read"
+        Subject = Subject "admin@domain.test"
+        Scope = scope "data:read"
+        Model = model "rbac_model.conf"
+        Policy = policy "adminConsole.csv"
+        Expected = Error AuthorizationError.AuthorizationDenied
     }
     {
-        Description = "should authorize action with group"
-        Authorization = authorization
-        Authorize = Authorize.withGroup (PermissionGroup "user")
-        Action = Authorize.Action.Request action
-        Request = {
-            Token = SecurityToken jwt
-            RequestData = "data"
-        }
-        ValidateToken = ignore  // todo - maybe later
-        Expected = Ok "response"
+        Description = "RBAC-model - admin should NOT authorize write"
+        Subject = Subject "admin@domain.test"
+        Scope = scope "data:write"
+        Model = model "rbac_model.conf"
+        Policy = policy "adminConsole.csv"
+        Expected = Error AuthorizationError.AuthorizationDenied
     }
     {
-        Description = "should NOT authorize action with group"
-        Authorization = authorization
-        Authorize = Authorize.withGroup (PermissionGroup "admin")
-        Action = Authorize.Action.Request action
-        Request = {
-            Token = SecurityToken jwt
-            RequestData = "data"
-        }
-        ValidateToken = ignore  // todo - maybe later
-        Expected = Error (SecuredRequestError.AuthorizationError "Action is not granted! You are not authorized for this action.")
-    }
-    {
-        Description = "should authorize action with login and pass a username"
-        Authorization = authorization
-        Authorize = Authorize.withLogin
-        Action =
-            Authorize.Action.RequestWithUsername (fun username ->
-                Expect.equal (Username "user") username "Username should be passed in."
-                action
-            )
-        Request = {
-            Token = SecurityToken jwt
-            RequestData = "data"
-        }
-        ValidateToken = ignore  // todo - maybe later
-        Expected = Ok "response"
-    }
-    {
-        Description = "should NOT authorize action with group and not pass a username"
-        Authorization = authorization
-        Authorize = Authorize.withGroup (PermissionGroup "admin")
-        Action =
-            Authorize.Action.RequestWithUsername (fun username ->
-                failtestf "Username should not be passed in."
-            )
-        Request = {
-            Token = SecurityToken jwt
-            RequestData = "data"
-        }
-        ValidateToken = ignore  // todo - maybe later
-        Expected = Error (SecuredRequestError.AuthorizationError "Action is not granted! You are not authorized for this action.")
+        Description = "RBAC-model - admin should authorize admin"
+        Subject = Subject "admin@domain.test"
+        Scope = scope "data:admin"
+        Model = model "rbac_model.conf"
+        Policy = policy "adminConsole.csv"
+        Expected = Ok ()
     }
 ]
 
 [<Tests>]
 let jwtTest =
-    testList "Authorization - authorized action by JWT" [
+    testList "Authorization" [
         yield!
             provideAuthorizations
             |> List.map (fun tc ->
                 testCase tc.Description <| fun _ ->
-                    // Server side
-                    let inline (>?>) authorize action =
-                        Authorize.authorizeAction
-                            tc.Authorization
-                            id
-                            (failtestf "Error: %A")
-                            authorize
-                            action
+                    let enforcer = Authorization.createEnforcer tc.Model tc.Policy |> okOrFail
+                    let granted = Authorization.enforce enforcer tc.Scope tc.Subject
 
-                    let apiAction: SecuredApiCall<_, _, _> = tc.Authorize >?> tc.Action
-
-                    // Client side
-                    let response =
-                        tc.Request
-                        |> apiAction
-                        |> Async.RunSynchronously
-
-                    let responseData =
-                        match response with
-                        | Ok (renewedToken, responseData) ->
-                            tc.ValidateToken renewedToken
-                            Ok responseData
-                        | Error e -> Error e
-
-                    Expect.equal responseData tc.Expected tc.Description
+                    Expect.equal granted tc.Expected tc.Description
             )
     ]

@@ -2,6 +2,7 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+- Add Authorization with Casbin
 
 ## 8.0.0 - 2026-01-14
 - [**BC**] Rename

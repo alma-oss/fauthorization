@@ -6,6 +6,7 @@ nuget FSharp.Data ~> 6.0
 nuget Microsoft.Extensions.Logging ~> 9.0
 nuget System.IdentityModel.Tokens.Jwt ~> 8.6
 nuget Portable.BouncyCastle ~> 1.9
+nuget Casbin.NET ~> 2.19
 
 nuget JsonWebToken ~> 1.9
 # defined in JsonWebToken https://github.com/uruk-project/Jwt/blob/v1.9.3/src/JsonWebToken/JsonWebToken.csproj#L77
@@ -13,8 +14,8 @@ nuget gfoidl.Base64 ~> 1.1.1
 
 nuget Alma.Authorization.Common ~> 6.0
 nuget Alma.ServiceIdentification ~> 10.1
-nuget Feather.ErrorHandling ~> 1.0
 nuget Feather.Cryptography ~> 1.0
+nuget Feather.ErrorHandling ~> 1.0
 
 nuget Expecto
 nuget YoloDev.Expecto.TestSdk
