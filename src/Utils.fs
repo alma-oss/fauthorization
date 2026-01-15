@@ -29,6 +29,12 @@ module internal Utils =
         let toLower (string: string) =
             string.ToLower()
 
+    [<RequireQualifiedAccess>]
+    module Result =
+        let toBool = function
+            | Ok _ -> true
+            | Error _ -> false
+
     [<AutoOpen>]
     module Regexp =
         open System.Text.RegularExpressions

@@ -32,7 +32,7 @@ let provideAuthorizations: AuthorizationTestCase list = [
     // Data Auditor (read-only)
     {
         Description = "RBAC - data-auditor should authorize read"
-        Subject = Subject "user@data-auditor.test"
+        Subject = Subject "user"
         Scope = scope "data:read"
         Model = RBAC
         Policy = policy "adminConsole.csv"
@@ -40,7 +40,7 @@ let provideAuthorizations: AuthorizationTestCase list = [
     }
     {
         Description = "RBAC - data-auditor should not authorize write"
-        Subject = Subject "user@data-auditor.test"
+        Subject = Subject "user"
         Scope = scope "data:write"
         Model = RBAC
         Policy = policy "adminConsole.csv"
@@ -48,7 +48,7 @@ let provideAuthorizations: AuthorizationTestCase list = [
     }
     {
         Description = "RBAC - data-auditor should not authorize admin"
-        Subject = Subject "user@data-auditor.test"
+        Subject = Subject "user"
         Scope = scope "data:admin"
         Model = RBAC
         Policy = policy "adminConsole.csv"

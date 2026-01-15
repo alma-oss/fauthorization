@@ -25,4 +25,4 @@ p, domain-adminConsole:data-auditor, data, read
 # Example format (not stored here):
 g, user@custom-care.test, domain-adminConsole:customer-care
 g, admin@domain.test, domain-adminConsole:admin
-g, user@data-auditor.test, domain-adminConsole:data-auditor
+g, user, domain-adminConsole:data-auditor
