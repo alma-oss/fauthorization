@@ -68,6 +68,7 @@ let provideJWTClientId = [
                 Name = None
                 Picture = None
                 Scope = Some "domain-context-purpose-version/basic.read"
+                Subject = Some (Subject "76e0d84d-57de-4dc9-ace7-e6a657e173cd")
                 Username = None
             }
         }

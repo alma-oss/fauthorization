@@ -13,6 +13,7 @@ module AmazonJWT =
     open Org.BouncyCastle.Crypto.Parameters
     open Org.BouncyCastle.OpenSsl
 
+    open Alma.Authorization
     open Alma.Authorization.Common
     open Alma.Authorization.JWT
 
@@ -135,6 +136,7 @@ module AmazonJWT =
                         Name = tryGetValue "name"
                         Picture = tryGetValue "picture"
                         Scope = tryGetValue "scope"
+                        Subject = tryGetValue "sub" |> Option.map Subject
                         Username = tryGetValue UserCustomData.Username
                     }
 

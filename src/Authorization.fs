@@ -5,8 +5,6 @@ open Feather.ErrorHandling
 open Alma.ServiceIdentification
 open Alma.Authorization.Common
 
-type Subject = Subject of string
-
 type Object = Object of string
 type Capability =
     | Read

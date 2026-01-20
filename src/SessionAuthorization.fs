@@ -80,6 +80,7 @@ module Session =
                 SecureRequest.accessData (fun token -> authorizeScope enforceScope authorization token scope)
 
         (*
+        todo - add other functions
         let withScopeByRequest (scopeFromRequest: 'RequestData -> Scope): Authorize<'RequestData> =
             fun authorization ->
                 SecureRequest.access (fun token ->
