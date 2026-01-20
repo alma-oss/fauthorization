@@ -15,6 +15,17 @@ module Session =
         AuthorizedBy: JWTKey
     }
 
+    type EnforceScope = EnforceScope of (Scope -> Permission)
+
+    [<RequireQualifiedAccess>]
+    module EnforceScope =
+        let prepare enforcer subject = EnforceScope (fun scope ->
+            TokenData (subject
+                >> Authorization.enforce enforcer scope
+                >> Result.toBool
+            )
+        )
+
     [<RequireQualifiedAccess>]
     module Authorize =
         open Feather.ErrorHandling
@@ -60,33 +71,29 @@ module Session =
             fun authorization ->
                 SecureRequest.accessData (authorize authorization (Group group))
 
-        (* let private grantScope instance appKey keysForToken token scope =
-            let permission =
-                scope
-                |> Ldap.Authorization.permissionGroup instance
-                |> Group
-
+        let private authorizeScope (EnforceScope enforce) authorization token (scope: Scope) =
             token
-            |> isGranted instance appKey keysForToken permission
+            |> authorize authorization (enforce scope)
 
-        let withScope scope: Authorize<'RequestData> =
-            fun instance appKey keysForToken ->
-                SecureRequest.accessData (fun token ->
-                    scope |> grantScope instance appKey keysForToken token
-                )
+        let withScope enforceScope scope: Authorize<'RequestData> =
+            fun authorization ->
+                SecureRequest.accessData (fun token -> authorizeScope enforceScope authorization token scope)
 
+        (*
+        todo - add other functions
         let withScopeByRequest (scopeFromRequest: 'RequestData -> Scope): Authorize<'RequestData> =
-            fun instance appKey keysForToken ->
+            fun authorization ->
                 SecureRequest.access (fun token ->
-                    scopeFromRequest >> grantScope instance appKey keysForToken token
+                    scopeFromRequest >> authorizeScope authorization token
                 )
 
         let withScopeResultFromRequest (scopeResultFromRequest: 'RequestData -> Result<Scope, ErrorMessage>): Authorize<'RequestData> =
-            fun instance appKey keysForToken ->
+            fun authorization ->
                 SecureRequest.access (fun token ->
                     scopeResultFromRequest >@> RequestError
-                    >=> (grantScope instance appKey keysForToken token)
-                ) *)
+                    >=> (authorizeScope authorization token)
+                )
+        *)
 
         open Feather.ErrorHandling.AsyncResult.Operators
 

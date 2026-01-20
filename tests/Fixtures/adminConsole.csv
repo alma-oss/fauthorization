@@ -1,0 +1,28 @@
+# Casbin Policy Configuration
+# Format: p, role, scope, capability
+# Format: g, child_role, parent_role (for role hierarchy)
+# Format: g, user_id, role (for user assignments - loaded from DynamoDB at runtime)
+
+# Service: domain-adminConsole (domain-context)
+# Instance would be: domain-adminConsole-{purpose}-{version} (environment-specific)
+
+# Role-to-Permission Mappings
+# customer-care: full read/write access
+p, domain-adminConsole:customer-care, data, read
+p, domain-adminConsole:customer-care, data, write
+
+# admin: admin access (grants all capabilities)
+p, domain-adminConsole:admin, data, admin
+
+# data-auditor: read-only access for verification/auditing
+p, domain-adminConsole:data-auditor, data, read
+
+# Role Hierarchy (if needed)
+# Example: g, domain-adminConsole:junior-admin, domain-adminConsole:admin
+
+# User-to-Role Assignments
+# These are managed dynamically in DynamoDB and loaded at runtime
+# Example format (not stored here):
+g, user@custom-care.test, domain-adminConsole:customer-care
+g, admin@domain.test, domain-adminConsole:admin
+g, user, domain-adminConsole:data-auditor

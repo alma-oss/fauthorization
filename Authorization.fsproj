@@ -18,9 +18,16 @@
     </ItemGroup>
 
     <ItemGroup>
+        <Content Include="src/model/rbac_model.conf">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+    </ItemGroup>
+
+    <ItemGroup>
         <Compile Include="src/Utils.fs" />
         <Compile Include="src/Types.fs" />
         <Compile Include="src/Token.fs" />
+        <Compile Include="src/Authorization.fs" />
         <Compile Include="src/SessionAuthorization.fs" />
         <Compile Include="src/AmazonJwt.fs" />
     </ItemGroup>

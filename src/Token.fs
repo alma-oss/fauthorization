@@ -5,6 +5,8 @@ open System.Text
 open System.IdentityModel.Tokens.Jwt
 open Alma.Authorization.Common
 
+type Subject = Subject of string
+
 [<RequireQualifiedAccess>]
 type JWT =
     | Raw of Common.JWT
@@ -293,6 +295,7 @@ module JWT =
         Name: string option
         Picture: string option
         Scope: string option
+        Subject: Subject option
         Username: string option
     }
 
@@ -338,6 +341,7 @@ module JWT =
                 | groups -> Some (CustomItem.Strings (UserCustomData.Groups, groups |> List.map PermissionGroup.value))
 
                 data.Scope |> Option.map (fun s -> CustomItem.String ("scope", s))
+                data.Subject |> Option.map (fun (Subject s) -> CustomItem.String ("sub", s))
                 data.ClientId |> Option.map (fun c -> CustomItem.String ("client_id", c))
                 data.Name |> Option.map (fun n -> CustomItem.String ("name", n))
                 data.FamilyName |> Option.map (fun f -> CustomItem.String ("family_name", f))
@@ -449,6 +453,7 @@ module JWT =
                             Name = getPayloadValue jwtResult "name"
                             Picture = getPayloadValue jwtResult "picture"
                             Scope = getPayloadValue jwtResult "scope"
+                            Subject = getPayloadValue jwtResult "sub" |> Option.map Subject
                             Username = getPayloadValue jwtResult UserCustomData.Username
                         })
                 else
