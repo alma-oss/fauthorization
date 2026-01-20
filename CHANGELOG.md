@@ -2,6 +2,8 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+
+## 8.1.0 - 2026-01-20
 - Add `Authorization` module with Casbin
 - Add `EnforceScope` type and module
 - Add `Session.Authorize.withScope` function
