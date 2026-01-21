@@ -269,8 +269,8 @@ module JWT =
 
     type Requirement =
         | NotExpired
-        | IssuedBy of Instance
-        | IntendedFor of Instance
+        | IssuedBy of Issuer
+        | IntendedFor of Audience
 
     type PermissionGroup = PermissionGroup of string
 
@@ -429,8 +429,8 @@ module JWT =
                     requirements
                     |> List.fold (fun (builder: TokenValidationPolicyBuilder) -> function
                         | NotExpired -> builder.EnableLifetimeValidation(true, 10)
-                        | IssuedBy instance -> builder.RequireIssuer(instance |> Instance.concat "-")
-                        | IntendedFor instance -> builder.RequireAudience(instance |> Instance.concat "-")
+                        | IssuedBy (Issuer iss) -> builder.RequireIssuer iss
+                        | IntendedFor (Audience aud) -> builder.RequireAudience aud
                     ) policyBuilder
 
                 let policy = policyBuilder.Build()
@@ -634,8 +634,8 @@ module JWT =
                 |> JWT.authorize
                     [
                         NotExpired
-                        IssuedBy currentInstance
-                        IntendedFor currentInstance
+                        IssuedBy (currentInstance |> Instance.concat "-" |> Issuer)
+                        IntendedFor (currentInstance |> Instance.concat "-" |> Audience)
                     ]
                     jwtKey
                     permission

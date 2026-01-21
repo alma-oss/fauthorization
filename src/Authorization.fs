@@ -10,6 +10,7 @@ type Capability =
     | Read
     | Write
     | Admin
+    | Capability of string
 
 type Scope = {
     Object: Object
@@ -24,26 +25,22 @@ type Policy =
     | PolicyFilePath of string
 
 [<RequireQualifiedAccess>]
-type CapabilityParseError =
-    | UnknownCapability of string
-
-[<RequireQualifiedAccess>]
 module Capability =
     let parse = function
-        | "read" -> Ok Read
-        | "write" -> Ok Write
-        | "admin" -> Ok Admin
-        | other -> Error (CapabilityParseError.UnknownCapability other)
+        | "read" -> Read
+        | "write" -> Write
+        | "admin" -> Admin
+        | other -> Capability other
 
     let value = function
         | Read -> "read"
         | Write -> "write"
         | Admin -> "admin"
+        | Capability other -> other
 
 [<RequireQualifiedAccess>]
 type ScopeParseError =
     | InvalidFormat of string
-    | CapabilityParseError of CapabilityParseError
 
 [<RequireQualifiedAccess>]
 module Scope =
@@ -53,16 +50,19 @@ module Scope =
             | [| object; capability |] -> Ok (Object object, capability)
             | _ -> Error (ScopeParseError.InvalidFormat scope)
 
-        let! capability =
+        let capability =
             rawCapability
             |> Capability.parse
-            |> Result.mapError ScopeParseError.CapabilityParseError
 
         return {
             Object = object
             Capability = capability
         }
     }
+
+    let value { Object = Object object; Capability = capability } =
+        let action = Capability.value capability
+        sprintf "%s:%s" object action
 
     let forCasbin { Object = Object object; Capability = capability } =
         let action = Capability.value capability

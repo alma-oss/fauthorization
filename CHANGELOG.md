@@ -2,6 +2,12 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+- Add `Capability.Other` case
+- [**BC**] Remove `CapabilityParseError` type and module
+- Add `Scope.value` function
+- [**BC**] Change types of `Requirement` cases
+    - `IssuedBy`
+    - `IntendedFor`
 
 ## 8.1.0 - 2026-01-20
 - Add `Authorization` module with Casbin
