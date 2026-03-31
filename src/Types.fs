@@ -1,5 +1,6 @@
 namespace Alma.Authorization
 
+open Feather.ErrorHandling
 open Alma.Authorization.Common
 
 //
@@ -35,11 +36,15 @@ module Credentials =
         | _, Password "" -> Error EmptyPassword
         | username, password -> Ok { Username = username; Password = password }
 
-type Authenticate = Authenticate of (Credentials -> Result<User, string>)
+type Authenticate =
+    | Authenticate of (Credentials -> Result<User, string>)
+    | AuthenticateAsync of (Credentials -> AsyncResult<User, string>)
 
 [<RequireQualifiedAccess>]
 module User =
-    let login (Authenticate auth) = auth
+    let login = function
+        | Authenticate auth -> auth >> Async.retn
+        | AuthenticateAsync auth -> auth
 
 type ACLClient = {
     ClientName: string
