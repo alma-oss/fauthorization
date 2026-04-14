@@ -1,0 +1,25 @@
+# Casbin Policy Configuration (domain model)
+# Format: p, role, purpose, scope, capability
+# Format: g, user_id, role, purpose
+
+# Role-to-Permission Mappings
+# domain-admin: full admin access
+p, domain-admin, dev,  entries, admin
+p, domain-admin, int,  entries, admin
+p, domain-admin, prod, entries, admin
+
+# auditor: read-only access
+p, auditor, dev,  entries, read
+p, auditor, int,  entries, read
+p, auditor, prod, entries, read
+
+# User-to-Role Assignments
+# Admin: Access on all purposes (dev, int, prod)
+g, admin, domain-admin, *
+
+# Developers: Access on non-production purposes (dev, int)
+g, developer, domain-admin, dev
+g, developer, domain-admin, int
+
+# Auditors: service-level (all purposes) read-only access
+g, domain.auditor, auditor, *

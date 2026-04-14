@@ -120,3 +120,14 @@ module Authorization =
         else
             return! Error AuthorizationError.AuthorizationDenied
     }
+
+    let enforceWithPurpose (enforcer: Enforcer) (purpose: Purpose) (scope: Scope) (user: Subject): Result<unit, AuthorizationError> = result {
+        let purpose = purpose |> Purpose.value
+        let object, action = Scope.forCasbin scope
+        let (Subject subject) = user
+
+        if enforcer.Enforce(subject, purpose, object, action) then
+            return ()
+        else
+            return! Error AuthorizationError.AuthorizationDenied
+    }
