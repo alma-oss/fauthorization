@@ -2,6 +2,8 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+
+## 10.1.0 - 2026-04-14
 - Add `Authorization.enforceWithPurpose` function
 
 ## 10.0.0 - 2026-01-29
