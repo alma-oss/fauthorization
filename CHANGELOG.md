@@ -2,6 +2,8 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+
+## 10.2.0 - 2026-04-14
 - Add `Session.EnforceScope.prepareWithPurpose` function
 
 ## 10.1.0 - 2026-04-14
