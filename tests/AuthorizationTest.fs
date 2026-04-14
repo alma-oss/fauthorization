@@ -135,7 +135,7 @@ let provideAuthorizations: AuthorizationTestCase list = [
 ]
 
 [<Tests>]
-let jwtTest =
+let authorizationTest =
     testList "Authorization" [
         yield!
             provideAuthorizations
@@ -143,6 +143,81 @@ let jwtTest =
                 testCase tc.Description <| fun _ ->
                     let enforcer = Authorization.createEnforcer tc.Model tc.Policy |> okOrFail
                     let granted = Authorization.enforce enforcer tc.Scope tc.Subject
+
+                    Expect.equal granted tc.Expected tc.Description
+            )
+    ]
+
+type AuthorizationByPurposeTestCase = {
+    Description: string
+    Subject: Subject
+    Scope: Scope
+    Model: Model
+    Policy: Policy
+    Purpose: Purpose
+    Expected: Result<unit, AuthorizationError>
+}
+
+let provideAuthorizationsByPurpose: AuthorizationByPurposeTestCase list = [
+    let purposes = ["dev"; "int"; "prod"]
+    let nonProdPurposes = ["dev"; "int"]
+
+    // auditConsole - Admin (a full access)
+    for purpose in purposes do
+        {
+            Description = $"RBAC-purpose-model - admin should authorize read on {purpose}"
+            Subject = Subject "admin"
+            Scope = scope "entries:read"
+            Model = model "rbac_purpose_model.conf"
+            Policy = policy "auditConsole.csv"
+            Purpose = Purpose purpose
+            Expected = Ok ()
+        }
+
+    // auditConsole - Auditor (read-only access on all purposes)
+    for purpose in purposes do
+        {
+            Description = $"RBAC-purpose-model - auditor should authorize read on {purpose}"
+            Subject = Subject "domain.auditor"
+            Scope = scope "entries:read"
+            Model = model "rbac_purpose_model.conf"
+            Policy = policy "auditConsole.csv"
+            Purpose = Purpose purpose
+            Expected = Ok ()
+        }
+
+    // auditConsole - Developer (access on non-production purposes only)
+    for purpose in nonProdPurposes do
+        {
+            Description = $"RBAC-purpose-model - developer should authorize read on {purpose}"
+            Subject = Subject "developer"
+            Scope = scope "entries:read"
+            Model = model "rbac_purpose_model.conf"
+            Policy = policy "auditConsole.csv"
+            Purpose = Purpose purpose
+            Expected = Ok ()
+        }
+
+    {
+        Description = $"RBAC-purpose-model - developer should NOT authorize read on prod"
+        Subject = Subject "developer"
+        Scope = scope "entries:read"
+        Model = model "rbac_purpose_model.conf"
+        Policy = policy "auditConsole.csv"
+        Purpose = Purpose "prod"
+        Expected = Error AuthorizationError.AuthorizationDenied
+    }
+]
+
+[<Tests>]
+let authorizationByPurposeTest =
+    testList "Authorization by purpose" [
+        yield!
+            provideAuthorizationsByPurpose
+            |> List.map (fun tc ->
+                testCase tc.Description <| fun _ ->
+                    let enforcer = Authorization.createEnforcer tc.Model tc.Policy |> okOrFail
+                    let granted = Authorization.enforceWithPurpose enforcer tc.Purpose tc.Scope tc.Subject
 
                     Expect.equal granted tc.Expected tc.Description
             )
