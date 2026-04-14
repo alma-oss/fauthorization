@@ -26,6 +26,13 @@ module Session =
             )
         )
 
+        let prepareWithPurpose enforcer purpose subject = EnforceScope (fun scope ->
+            TokenData (subject
+                >> Authorization.enforceWithPurpose enforcer purpose scope
+                >> Result.toBool
+            )
+        )
+
     [<RequireQualifiedAccess>]
     module Authorize =
         open Feather.ErrorHandling

@@ -38,15 +38,17 @@ let provideAuthorizations: AuthorizationTestCase<string, string, string> list = 
         AuthorizedBy = jwtKey
     }
 
-    let jwt =
+    let createJwt username =
         SessionJWT.create currentInstance jwtKey {
-            Username = Username "user"
-            DisplayName = "Uživatel"
+            Username = Username username
+            DisplayName = username
             Groups = [ PermissionGroup "user" ]
             CustomClaims = []
         }
         |> Async.RunSynchronously
         |> okOrFail
+
+    let jwt = createJwt "user"
 
     let action = function
         | "data" -> AsyncResult.ofSuccess "response"
@@ -58,6 +60,13 @@ let provideAuthorizations: AuthorizationTestCase<string, string, string> list = 
         let enforcer = Authorization.createEnforcer model policy |> okOrFail
 
         EnforceScope.prepare enforcer (_.Username >> Option.defaultValue "anonymous" >> Subject)
+
+    let enforceScopeWithPurpose purpose =
+        let model = AuthorizationTest.model "rbac_purpose_model.conf"
+        let policy = AuthorizationTest.policy "auditConsole.csv"
+        let enforcer = Authorization.createEnforcer model policy |> okOrFail
+
+        EnforceScope.prepareWithPurpose enforcer (Purpose purpose) (_.Username >> Option.defaultValue "anonymous" >> Subject)
 
     {
         Description = "should authorize action with login"
@@ -155,6 +164,70 @@ let provideAuthorizations: AuthorizationTestCase<string, string, string> list = 
             RequestData = "data"
         }
         ValidateToken = ignore  // todo - maybe later
+        Expected = Error (SecuredRequestError.AuthorizationError "Action is not granted! You are not authorized for this action.")
+    }
+
+    let purposes = [ "dev"; "int"; "prod" ]
+    let nonProdPurposes = [ "dev"; "int" ]
+
+    // admin - full access on all purposes
+    for purpose in purposes do
+        {
+            Description = $"should authorize admin action with purpose {purpose}"
+            Authorization = authorization
+            Authorize = Authorize.withScope (enforceScopeWithPurpose purpose) (AuthorizationTest.scope "entries:read")
+            Action = Authorize.Action.Request action
+            Request = {
+                Token = SecurityToken (createJwt "admin")
+                RequestData = "data"
+            }
+            ValidateToken = ignore
+            Expected = Ok "response"
+        }
+
+    // domain.auditor - read on all purposes
+    for purpose in purposes do
+        {
+            Description = $"should authorize domain.auditor action with purpose {purpose}"
+            Authorization = authorization
+            Authorize = Authorize.withScope (enforceScopeWithPurpose purpose) (AuthorizationTest.scope "entries:read")
+            Action = Authorize.Action.Request action
+            Request = {
+                Token = SecurityToken (createJwt "domain.auditor")
+                RequestData = "data"
+            }
+            ValidateToken = ignore
+            Expected = Ok "response"
+        }
+
+    // developer - access on non-production purposes only
+    for purpose in nonProdPurposes do
+        {
+            Description = $"should authorize developer action with purpose {purpose}"
+            Authorization = authorization
+            Authorize = Authorize.withScope (enforceScopeWithPurpose purpose) (AuthorizationTest.scope "entries:read")
+            Action = Authorize.Action.Request action
+            Request = {
+                Token = SecurityToken (createJwt "developer")
+                RequestData = "data"
+            }
+            ValidateToken = ignore
+            Expected = Ok "response"
+        }
+
+    {
+        Description = "should NOT authorize developer action with purpose prod"
+        Authorization = authorization
+        Authorize = Authorize.withScope (enforceScopeWithPurpose "prod") (AuthorizationTest.scope "entries:read")
+        Action =
+            Authorize.Action.RequestWithUsername (fun _ ->
+                failtestf "Username should not be passed in."
+            )
+        Request = {
+            Token = SecurityToken (createJwt "developer")
+            RequestData = "data"
+        }
+        ValidateToken = ignore
         Expected = Error (SecuredRequestError.AuthorizationError "Action is not granted! You are not authorized for this action.")
     }
 ]
