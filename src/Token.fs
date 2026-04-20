@@ -505,8 +505,9 @@ module JWT =
                 descriptor.AddClaim(key, array)
                 descriptor |> addCustomData rest
 
-        let private createDescriptor (Issuer issuer) (Audience audience) (ExpiresInMinutes expiresInMinutes) jwtKey customData key =
+        let private createDescriptor jti (Issuer issuer) (Audience audience) (ExpiresInMinutes expiresInMinutes) jwtKey customData key =
             let now = DateTime.UtcNow
+            let jwtId = jti |> Option.defaultValue (Guid.NewGuid())
 
             let customData =
                 match customData with
@@ -517,7 +518,7 @@ module JWT =
             let descriptor = JwsDescriptor(
                 Type = "JWT",
                 Algorithm = JWTKey.signatureAlgorithm jwtKey,
-                JwtId = Guid.NewGuid().ToString(),
+                JwtId = jwtId.ToString(),
                 IssuedAt = (now |> Nullable),
                 NotBefore = (now |> Nullable),
                 ExpirationTime = (now.AddMinutes(expiresInMinutes) |> Nullable),
@@ -531,9 +532,8 @@ module JWT =
 
             descriptor |> addCustomData customData
 
-
-        let create iss aud exp (jwtKey: JWTKey) customData = asyncResult {
-            let createDescriptor = createDescriptor iss aud exp jwtKey customData
+        let private createWith jti iss aud exp (jwtKey: JWTKey) customData = asyncResult {
+            let createDescriptor = createDescriptor jti iss aud exp jwtKey customData
 
             match jwtKey with
             | External sign ->
@@ -553,6 +553,9 @@ module JWT =
                     |> JwtWriter().WriteTokenString
                     |> JWT
         }
+
+        let createWithId id = createWith (Some id)
+        let create = createWith None
 
         let renew: Renew = fun (ExpiresInMinutes expiresIn) jwtKey (GrantedTokenData (GrantedToken token, tokenData)) -> asyncResult {
             let createDescriptor key =
