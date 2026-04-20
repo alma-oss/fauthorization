@@ -235,4 +235,36 @@ let jwtTest =
                     }
                     |> ignore
             )
+
+        testCase "should create JWT with specific UUID as JTI" <| fun _ ->
+            let currentInstance = instance "prc-jwt-test-test"
+            let appKey = JWTKey.Symmetric.tryParse "edbe2f5a-4d4a-4975-98b6-b794532e9732" |> Result.ofOption "Invalid Key" |> okOrFail
+            let jwtKey = Symmetric appKey
+            let staticId = Guid.Parse "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+            let currentApplication = currentInstance |> Instance.concat "-"
+
+            let sessionData = {
+                Username = Username "testuser"
+                DisplayName = "Test User"
+                Groups = [ PermissionGroup "user" ]
+                CustomClaims = []
+            }
+
+            let token =
+                GenericTokenData.SessionData sessionData
+                |> JWT.createWithId
+                    staticId
+                    (Issuer currentApplication)
+                    (Audience currentApplication)
+                    (ExpiresInMinutes 30)
+                    jwtKey
+                |> Async.RunSynchronously
+                |> okOrFail
+
+            let jti =
+                match JWT.Raw token with
+                | HasPayloadValue "jti" (JWTValue.String id) -> Some id
+                | _ -> None
+
+            Expect.equal jti (Some (staticId.ToString())) "JWT should contain the specified UUID as jti claim"
     ]
