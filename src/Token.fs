@@ -603,15 +603,18 @@ module JWT =
 
         let sessionData (GrantedSessionData (sessionData, _)) = sessionData
 
-        let create currentInstance jwtKey sessionData =
+        let createFor currentInstance exp jwtKey sessionData =
             let currentApplication = currentInstance |> Instance.concat "-"
 
             GenericTokenData.SessionData sessionData
             |> JWT.create
                 (Issuer currentApplication)
                 (Audience currentApplication)
-                (ExpiresInMinutes 30)
+                exp
                 jwtKey
+
+        let create currentInstance jwtKey sessionData =
+            createFor currentInstance (ExpiresInMinutes 30) jwtKey sessionData
 
         let private validateSessionData grantedData = result {
             let tokenData = grantedData |> JWT.tokenData
