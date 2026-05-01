@@ -2,6 +2,8 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+
+## 10.4.0 - 2026-05-01
 - Add `SessionJWT.createFor` function
 
 ## 10.3.0 - 2026-04-20
