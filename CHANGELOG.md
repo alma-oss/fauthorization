@@ -3,6 +3,8 @@
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
 
+- Pin `Microsoft.Extensions.Configuration` and `Microsoft.Extensions.Configuration.Ini` to >= 10.0 < 11.0 to avoid resolving to 11.0.0-preview versions
+
 ## 10.4.0 - 2026-05-01
 - Add `SessionJWT.createFor` function
 
