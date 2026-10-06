@@ -1,6 +1,8 @@
 FSharp.Core
 FSharp.Data
 Microsoft.Extensions.Logging
+Microsoft.Extensions.Configuration
+Microsoft.Extensions.Configuration.Ini
 System.IdentityModel.Tokens.Jwt
 JsonWebToken
 gfoidl.Base64
