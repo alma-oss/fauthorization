@@ -4,6 +4,10 @@
 
 `Alma.Authorization` is an F# NuGet library for web application authorization. It provides JWT creation/validation, session-based authorization with token renewal, credential handling, RBAC enforcement via Casbin, external signing support (e.g., Vault Transit), and Amazon ALB JWT validation. Used by SAFE stack applications to secure API endpoints with a composable `>?>` operator pattern.
 
+## Agent Skills
+
+This repo ships Agent Skill for the `Alma.Authorization` library. Compatible agents discover it automatically; see `.agents/skills/fauthorization/SKILL.md`.
+
 ## Tech Stack
 
 - **Language:** F# (.NET 10)

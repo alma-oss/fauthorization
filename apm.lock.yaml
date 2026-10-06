@@ -1,0 +1,113 @@
+lockfile_version: '1'
+dependencies: []
+deployments:
+- kind: project-relative
+  target: claude
+  value: .claude/skills/fauthorization
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/fauthorization/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:6ead2ff55a2af6d383f53ea9447785df98fa5c58206ba486c8e3b1dc83c90e4c
+- kind: project-relative
+  target: claude
+  value: .claude/skills/fauthorization/references/anti-patterns.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:180478523db40d68a817b141a4d94395253d0afd460f7df2707a0d6ce640a0c9
+- kind: project-relative
+  target: claude
+  value: .claude/skills/fauthorization/references/examples.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:801b2b5144cc2c06307e795a6f11b7cd15fca8194eeb9e8f6561783dd1cda03e
+- kind: project-relative
+  target: claude
+  value: .claude/skills/fauthorization/references/preferred-patterns.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:3cbacb56388c8aabd37e9fe6851451b2fc8e03349cff4bfa25ec1d3ccfcd2660
+- kind: project-relative
+  target: legacy
+  value: .agents/skills/fauthorization
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: null
+- kind: project-relative
+  target: legacy
+  value: .agents/skills/fauthorization/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:6ead2ff55a2af6d383f53ea9447785df98fa5c58206ba486c8e3b1dc83c90e4c
+- kind: project-relative
+  target: legacy
+  value: .agents/skills/fauthorization/references/anti-patterns.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:180478523db40d68a817b141a4d94395253d0afd460f7df2707a0d6ce640a0c9
+- kind: project-relative
+  target: legacy
+  value: .agents/skills/fauthorization/references/examples.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:801b2b5144cc2c06307e795a6f11b7cd15fca8194eeb9e8f6561783dd1cda03e
+- kind: project-relative
+  target: legacy
+  value: .agents/skills/fauthorization/references/preferred-patterns.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:3cbacb56388c8aabd37e9fe6851451b2fc8e03349cff4bfa25ec1d3ccfcd2660
+local_deployed_files:
+- .agents/skills/fauthorization
+- .agents/skills/fauthorization/SKILL.md
+- .agents/skills/fauthorization/references/anti-patterns.md
+- .agents/skills/fauthorization/references/examples.md
+- .agents/skills/fauthorization/references/preferred-patterns.md
+- .claude/skills/fauthorization
+- .claude/skills/fauthorization/SKILL.md
+- .claude/skills/fauthorization/references/anti-patterns.md
+- .claude/skills/fauthorization/references/examples.md
+- .claude/skills/fauthorization/references/preferred-patterns.md
+local_deployed_file_hashes:
+  .agents/skills/fauthorization/SKILL.md: sha256:6ead2ff55a2af6d383f53ea9447785df98fa5c58206ba486c8e3b1dc83c90e4c
+  .agents/skills/fauthorization/references/anti-patterns.md: sha256:180478523db40d68a817b141a4d94395253d0afd460f7df2707a0d6ce640a0c9
+  .agents/skills/fauthorization/references/examples.md: sha256:801b2b5144cc2c06307e795a6f11b7cd15fca8194eeb9e8f6561783dd1cda03e
+  .agents/skills/fauthorization/references/preferred-patterns.md: sha256:3cbacb56388c8aabd37e9fe6851451b2fc8e03349cff4bfa25ec1d3ccfcd2660
+  .claude/skills/fauthorization/SKILL.md: sha256:6ead2ff55a2af6d383f53ea9447785df98fa5c58206ba486c8e3b1dc83c90e4c
+  .claude/skills/fauthorization/references/anti-patterns.md: sha256:180478523db40d68a817b141a4d94395253d0afd460f7df2707a0d6ce640a0c9
+  .claude/skills/fauthorization/references/examples.md: sha256:801b2b5144cc2c06307e795a6f11b7cd15fca8194eeb9e8f6561783dd1cda03e
+  .claude/skills/fauthorization/references/preferred-patterns.md: sha256:3cbacb56388c8aabd37e9fe6851451b2fc8e03349cff4bfa25ec1d3ccfcd2660
