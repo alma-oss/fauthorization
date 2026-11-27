@@ -93,7 +93,7 @@ module AmazonJWT =
                 let (Issuer requiredIssuer) = dependencies.Issuer
 
                 let validationParameters =
-                    new TokenValidationParameters(
+                    TokenValidationParameters(
                         // fsharplint:disable
                         RequireExpirationTime = true,
                         RequireSignedTokens = true,

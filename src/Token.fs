@@ -485,6 +485,7 @@ module JWT =
         let authorize requirements: Authorize = fun jwtKey ->
             authorizeToken (readTokenData jwtKey requirements)
 
+        [<TailCall>]
         let rec internal addCustomData customData (descriptor: JwsDescriptor) =
             match customData with
             | [] -> descriptor
