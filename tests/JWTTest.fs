@@ -19,7 +19,7 @@ let runOkOrFail = Async.RunSynchronously >> okOrFail
 
 let instance (instance: string) = Create.Instance(instance) |> okOrFail
 let publicRSAKey pemName =
-    let pemPath = Path.Combine("Fixtures", pemName)
+    let pemPath = Path.Combine(__SOURCE_DIRECTORY__, "Fixtures", pemName)
 
     {
         Pem = File.ReadAllText(pemPath)
